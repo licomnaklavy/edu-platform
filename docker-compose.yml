@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build: 
@@ -8,40 +6,39 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - backend
-    environment:
-      - API_BASE_URL=http://localhost:8000
+      - backend-api
     networks:
       - education-network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
-  backend:
+  backend-api:
     build: 
       context: ./backend
       dockerfile: Dockerfile
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://user:password@db:5432/education_platform
       - SECRET_KEY=your-secret-key-change-in-production
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     networks:
       - education-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    volumes:
-      - ./backend/app:/app/app  # Для разработки - монтируем код
+
+  backend-auth:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["uvicorn", "app.auth_service:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/education_platform
+      - SECRET_KEY=your-secret-key-change-in-production
+    depends_on:
+      - db
+    networks:
+      - education-network
 
   db:
     image: postgres:15
@@ -53,18 +50,46 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/docker/postgres-init:/docker-entrypoint-initdb.d  # Init скрипты
     networks:
       - education-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d education_platform"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - education-network
+
+  backup-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "app/backup_service.py"]
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/education_platform
+    volumes:
+      - backup_data:/backups
+    depends_on:
+      - db
+    networks:
+      - education-network
+
+  health-monitor:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "app/health_monitor.py"]
+    depends_on:
+      - backend-api
+      - backend-auth
+      - db
+      - redis
+    networks:
+      - education-network
 
 volumes:
   postgres_data:
+  backup_data:
 
 networks:
   education-network:

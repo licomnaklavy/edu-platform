@@ -2,9 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
-import jwt
+from jose import JWTError, jwt
 from datetime import datetime, timedelta
-import time
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from . import models, schemas, crud
@@ -55,7 +54,7 @@ def verify_token(token: str):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except jwt.PyJWTError:
+    except JWTError:
         return None
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
@@ -187,10 +186,10 @@ def leave_course(
     
     return {"message": "Successfully left course"}
 
-# Health check endpoint (без авторизации)
+# Health check endpoint
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "service": "main-api"}
 
 @app.get("/")
 def root():
