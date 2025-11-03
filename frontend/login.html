@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход - Образовательная платформа</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/header.css">
+    <link rel="stylesheet" href="css/courses.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body class="login-body">
+    <div class="login-wrapper">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>Образовательная платформа</h1>
+                <p>Войдите в свой аккаунт</p>
+            </div>
+            
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required placeholder="Введите ваш email">
+                </div>
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input type="password" id="password" required placeholder="Введите ваш пароль">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Войти</button>
+            </form>
+            
+            <div class="demo-accounts">
+                <h4>Тестовые аккаунты:</h4>
+                <p><strong>Email:</strong> student@edu.ru | <strong>Пароль:</strong> 123</p>
+                <p><strong>Email:</strong> teacher@edu.ru | <strong>Пароль:</strong> 123</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+/* Стили для страниц курсов */
+
+/* Поиск и фильтры */
+.search-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.search-box {
+    position: relative;
+    flex: 1;
+    max-width: 400px;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 12px 45px 12px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 25px;
+    font-size: 14px;
+    background-color: white;
+    transition: all 0.3s ease;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.search-icon {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #666;
+    font-size: 1.1rem;
+}
+
+.filter-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.filter-group select {
+    padding: 10px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: white;
+    font-size: 14px;
+    min-width: 150px;
+    cursor: pointer;
+}
+
+.filter-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* Сетка курсов */
+.courses-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.course-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 1px solid var(--border-color);
+}
+
+.course-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-hover);
+}
+
+.course-header {
+    padding: 1.5rem 1.5rem 1rem 1.5rem;
+}
+
+.course-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--secondary-color);
+    margin: 0;
+    line-height: 1.3;
+}
+
+.course-content {
+    padding: 0 1.5rem 1.5rem 1.5rem;
+}
+
+.course-description {
+    color: #666;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+    font-size: 0.95rem;
+    min-height: 60px;
+}
+
+.course-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.course-hours {
+    color: var(--primary-color);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.course-hours::before {
+    content: '⏱';
+    font-size: 0.8rem;
+}
+
+.course-level {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.course-level.beginner {
+    background: #e8f5e8;
+    color: #2ecc71;
+}
+
+.course-level.intermediate {
+    background: #e8f4fd;
+    color: #3498db;
+}
+
+.course-level.advanced {
+    background: #fde8e8;
+    color: #e74c3c;
+}
+
+.course-actions {
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.btn-start {
+    background-color: var(--success-color);
+    color: white;
+    width: 100%;
+    padding: 10px;
+}
+
+.btn-start:hover {
+    background-color: #27ae60;
+}
+
+.btn-leave {
+    background-color: var(--accent-color);
+    color: white;
+    width: 100%;
+    padding: 10px;
+}
+
+.btn-leave:hover {
+    background-color: #c0392b;
+}
+
+.btn-disabled {
+    background-color: var(--border-color) !important;
+    color: #666 !important;
+    cursor: not-allowed !important;
+}
+
+.btn-disabled:hover {
+    background-color: var(--border-color) !important;
+    transform: none !important;
+}
+
+/* Настройки */
+.settings-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.settings-section {
+    padding: 2rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-section:last-child {
+    border-bottom: none;
+}
+
+.settings-section h3 {
+    color: var(--secondary-color);
+    margin-bottom: 1.5rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}

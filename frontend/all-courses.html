@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Все курсы - Образовательная платформа</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/header.css">
+    <link rel="stylesheet" href="css/courses.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <a href="my-courses.html" class="logo">Образовательная платформа</a>
+            
+            <nav class="header-nav">
+                <a href="all-courses.html" class="nav-btn active">
+                    Все курсы
+                </a>
+                <a href="my-courses.html" class="nav-btn">
+                    Мои курсы
+                </a>
+                <a href="settings.html" class="nav-btn">
+                    Настройки
+                </a>
+            </nav>
+            
+            <div class="user-menu">
+                <span class="user-name" id="user-name">Пользователь</span>
+                <button class="logout-btn">Выйти</button>
+            </div>
+        </div>
+    </header>
+    
+    <main class="main-container">
+        <div class="page-header">
+            <h1>Все курсы</h1>
+        </div>
+
+        <div class="search-section">
+            <div class="search-box">
+                <input type="text" id="course-search" placeholder="Поиск курсов...">
+                <span class="search-icon">⌕</span>
+            </div>
+            
+            <div class="filter-group">
+                <select id="level-filter">
+                    <option value="">Все уровни</option>
+                    <option value="beginner">Начальный</option>
+                    <option value="intermediate">Средний</option>
+                    <option value="advanced">Продвинутый</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="all-courses-list" class="courses-grid">
+            <!-- Все курсы будут загружены через JavaScript -->
+        </div>
+
+        <div id="no-courses-message" class="no-courses-message" style="display: none;">
+            <div class="empty-state">
+                <h3>Курсы не найдены</h3>
+                <p>Попробуйте изменить параметры поиска или фильтры</p>
+            </div>
+        </div>
+    </main>
+
+    <script type="module" src="js/auth.js"></script>
+    <script type="module" src="js/courses.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
