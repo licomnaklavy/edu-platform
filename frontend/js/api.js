@@ -17,7 +17,6 @@ function removeAuthToken() {
     localStorage.removeItem('authToken');
     localStorage.removeItem('currentUser');
     localStorage.removeItem('isLoggedIn');
-    console.log('Auth data cleared from localStorage');
 }
 
 // Generic API request function
@@ -32,32 +31,42 @@ async function apiRequest(endpoint, options = {}) {
         headers['Authorization'] = `Bearer ${token}`;
     }
 
-    console.log(`API Request: ${endpoint}`, { hasToken: !!token });
-
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
             headers,
         });
 
-        if (response.status === 401) {
-            // Token expired or invalid
-            console.log('API returned 401, logging out');
+        // Для эндпоинтов аутентификации обрабатываем 401 по-другому
+        const isAuthEndpoint = endpoint.includes('/auth/');
+        
+        if (response.status === 401 && !isAuthEndpoint) {
+            // Token expired or invalid for protected endpoints - logout
             removeAuthToken();
             window.location.href = 'login.html';
             throw new Error('Authentication required');
         }
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            const errorMessage = errorData.detail || `HTTP error! status: ${response.status}`;
-            console.error('API error:', errorMessage);
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.detail || errorMessage;
+                
+                // Для ошибок аутентификации возвращаем более понятное сообщение
+                if (response.status === 401 && isAuthEndpoint) {
+                    errorMessage = 'Неверный email или пароль';
+                }
+            } catch (e) {
+                // Если не удалось распарсить JSON, используем стандартное сообщение
+            }
+            
             throw new Error(errorMessage);
         }
 
         return await response.json();
     } catch (error) {
-        console.error('API request failed:', error);
         throw error;
     }
 }
@@ -65,32 +74,37 @@ async function apiRequest(endpoint, options = {}) {
 // Auth API
 export const authAPI = {
     async login(email, password) {
-        console.log('API: Attempting login for:', email);
-        const data = await apiRequest('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password }),
-        });
+        try {
+            const data = await apiRequest('/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({ email, password }),
+            });
+            
+            setAuthToken(data.access_token);
+            localStorage.setItem('currentUser', JSON.stringify(data.user));
+            localStorage.setItem('isLoggedIn', 'true');
 
-        console.log('API: Login successful', data);
-        
-        setAuthToken(data.access_token);
-        localStorage.setItem('currentUser', JSON.stringify(data.user));
-        localStorage.setItem('isLoggedIn', 'true');
-
-        return data;
+            return data;
+        } catch (error) {
+            throw error;
+        }
     },
 
     async register(email, password, name) {
-        const data = await apiRequest('/auth/register', {
-            method: 'POST',
-            body: JSON.stringify({ email, password, name }),
-        });
+        try {
+            const data = await apiRequest('/auth/register', {
+                method: 'POST',
+                body: JSON.stringify({ email, password, name }),
+            });
+            
+            setAuthToken(data.access_token);
+            localStorage.setItem('currentUser', JSON.stringify(data.user));
+            localStorage.setItem('isLoggedIn', 'true');
 
-        setAuthToken(data.access_token);
-        localStorage.setItem('currentUser', JSON.stringify(data.user));
-        localStorage.setItem('isLoggedIn', 'true');
-
-        return data;
+            return data;
+        } catch (error) {
+            throw error;
+        }
     },
 
     async getCurrentUser() {
@@ -98,7 +112,6 @@ export const authAPI = {
     },
 
     logout() {
-        console.log('API: Logging out');
         removeAuthToken();
     }
 };

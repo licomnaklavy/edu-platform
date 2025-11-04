@@ -201,6 +201,28 @@ body {
     margin-bottom: 2rem;
 }
 
+.login-footer {
+    text-align: center;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.login-footer p {
+    color: #666;
+    margin: 0;
+}
+
+.link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.link:hover {
+    text-decoration: underline;
+}
+
 .demo-accounts {
     background-color: var(--light-color);
     padding: 1rem;

@@ -4,24 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Образовательная платформа</title>
-    <script>
-        // Проверяем авторизацию и redirect'им
-        document.addEventListener('DOMContentLoaded', function() {
-            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-            const hasToken = localStorage.getItem('authToken');
-            const hasUser = localStorage.getItem('currentUser');
-            
-            console.log('Auth check:', { isLoggedIn, hasToken, hasUser });
-            
-            if (isLoggedIn && hasToken && hasUser) {
-                // Авторизован - идем на главную
-                window.location.href = 'my-courses.html';
-            } else {
-                // Не авторизован - идем на логин
-                window.location.href = 'login.html';
-            }
-        });
-    </script>
     <style>
         body {
             margin: 0;
@@ -36,6 +18,10 @@
         }
         .loading-container {
             text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 3rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
         }
         .spinner {
             border: 4px solid rgba(255, 255, 255, 0.3);
@@ -45,6 +31,24 @@
             height: 50px;
             animation: spin 1s linear infinite;
             margin: 0 auto 20px;
+        }
+        .auth-options {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+        .auth-btn {
+            padding: 10px 20px;
+            border: 2px solid white;
+            border-radius: 6px;
+            color: white;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .auth-btn:hover {
+            background: white;
+            color: #2c3e50;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -56,7 +60,30 @@
     <div class="loading-container">
         <div class="spinner"></div>
         <h2>Образовательная платформа</h2>
-        <p>Перенаправление...</p>
+        <p>Выберите действие:</p>
+        <div class="auth-options">
+            <a href="login.html" class="auth-btn">Войти</a>
+            <a href="register.html" class="auth-btn">Зарегистрироваться</a>
+        </div>
     </div>
+
+    <script>
+        // Только если пользователь уже авторизован - редиректим
+        document.addEventListener('DOMContentLoaded', function() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            const hasToken = localStorage.getItem('authToken');
+            const hasUser = localStorage.getItem('currentUser');
+            
+            console.log('Index page auth check:', { isLoggedIn, hasToken, hasUser });
+            
+            if (isLoggedIn && hasToken && hasUser) {
+                console.log('User is logged in, redirecting to my-courses');
+                window.location.href = 'my-courses.html';
+            } else {
+                console.log('User is not logged in, showing auth options');
+                // Показываем варианты входа/регистрации (уже отображаются)
+            }
+        });
+    </script>
 </body>
 </html>
