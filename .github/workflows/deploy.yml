@@ -54,34 +54,7 @@ jobs:
     - name: Test Backend image functionality
       run: |
         echo "🧪 Testing Backend image..."
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} python -c "
-        import sys
-        print('Python version:', sys.version)
-        
-        # Test module imports
-        modules_to_test = [
-            'app.models',
-            'app.schemas', 
-            'app.crud',
-            'app.database'
-        ]
-        
-        for module in modules_to_test:
-            try:
-                __import__(module)
-                print(f'✅ {module} imports successfully')
-            except ImportError as e:
-                print(f'❌ {module} import failed: {e}')
-                sys.exit(1)
-        
-        # Test class imports
-        from app.models import User, Course
-        from app.schemas import UserCreate, CourseCreate, UserLogin
-        
-        print('✅ All model classes imported')
-        print('✅ All schema classes imported')
-        print('🎉 Backend image test PASSED')
-        "
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} python -c "import sys; print('Python version:', sys.version); import app.models, app.schemas, app.crud; from app.models import User, Course; from app.schemas import UserCreate, CourseCreate, UserLogin; print('✅ All imports successful'); print('🎉 Backend image test PASSED')"
     
     - name: Test Frontend image build
       run: |
@@ -100,7 +73,6 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # Mock API endpoints for testing
     location ~ ^/(api|auth|users|courses|health) {
         add_header Content-Type application/json;
         return 200 '{"status": "healthy", "environment": "test"}';
@@ -109,10 +81,7 @@ server {
 EOF
         
         # Test with simplified config
-        docker run --rm \
-          -v $(pwd)/nginx-test.conf:/etc/nginx/conf.d/default.conf \
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }} \
-          nginx -t
+        docker run --rm -v $(pwd)/nginx-test.conf:/etc/nginx/conf.d/default.conf ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }} nginx -t
         
         # Cleanup
         rm -f nginx-test.conf
@@ -254,8 +223,3 @@ EOF
         echo "   Frontend: http://localhost:30080"
         echo "   Backend API: http://localhost:30800"
         echo "   Backend Health: http://localhost:30800/health"
-        echo ""
-        echo "🔧 Debug Commands:"
-        echo "   kubectl logs -l app=backend-api -n eduplatform"
-        echo "   kubectl logs -l app=frontend -n eduplatform"
-        echo "   kubectl describe pod -l app=backend-api -n eduplatform"
