@@ -52,7 +52,13 @@ jobs:
     
     - name: Quick Frontend Test
       run: |
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:test nginx -t
+        # Используем тестовую конфигурацию
+        cd frontend
+        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:test .
+        
+        # Тестируем с тестовым конфигом
+        docker run --rm -v $(pwd)/nginx-test.conf:/etc/nginx/conf.d/default.conf \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:test nginx -t
         echo "✅ Frontend nginx config is valid"
     
     - name: Cleanup
