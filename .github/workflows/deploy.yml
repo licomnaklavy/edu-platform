@@ -6,10 +6,6 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -50,17 +46,15 @@ jobs:
     - name: Build and Test Backend Docker image
       run: |
         cd backend
-        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} .
-        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest .
+        docker build -t eduplatform-backend:ci .
         echo "Testing Backend image..."
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} python -c "import sys; print('Testing imports...'); import app.models; import app.schemas; import app.crud; from app.models import User, Course; from app.schemas import UserCreate, CourseCreate; print('All imports successful'); print('Backend image test PASSED')"
+        docker run --rm eduplatform-backend:ci python -c "import sys; print('Testing imports...'); import app.models; import app.schemas; import app.crud; from app.models import User, Course; from app.schemas import UserCreate, CourseCreate; print('All imports successful'); print('Backend image test PASSED')"
         echo "Backend Docker image built and tested"
     
     - name: Build and Test Frontend Docker image
       run: |
         cd frontend
-        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }} .
-        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest .
+        docker build -t eduplatform-frontend:ci .
         echo "Frontend Docker image built"
 
   deploy-to-production:
@@ -73,30 +67,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v2
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Build and Push Backend image
+    - name: Build Backend image
       run: |
         cd backend
-        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} .
-        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest .
-        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }}
-        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
-        echo "Backend image pushed to registry"
+        docker build -t eduplatform-backend:latest .
+        echo "Backend image built"
     
-    - name: Build and Push Frontend image
+    - name: Build Frontend image
       run: |
         cd frontend
-        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }} .
-        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest .
-        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }}
-        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
-        echo "Frontend image pushed to registry"
+        docker build -t eduplatform-frontend:latest .
+        echo "Frontend image built"
     
     - name: Set up Kubernetes
       uses: azure/setup-kubectl@v3
@@ -110,6 +91,13 @@ jobs:
         kubectl get nodes
         echo "Kubernetes cluster access configured"
     
+    - name: Import images to k3d
+      run: |
+        # Import images to k3d cluster
+        k3d image import eduplatform-backend:latest -c eduplatform
+        k3d image import eduplatform-frontend:latest -c eduplatform
+        echo "Images imported to k3d cluster"
+    
     - name: Deploy database layer
       run: |
         echo "Deploying database layer..."
@@ -117,14 +105,15 @@ jobs:
         kubectl apply -f k8s/configmap.yaml
         kubectl apply -f k8s/postgresql.yaml
         kubectl apply -f k8s/redis.yaml
+        
+        # Wait for database to be ready
+        echo "Waiting for PostgreSQL to be ready..."
         kubectl wait --for=condition=ready pod -l app=postgresql -n eduplatform --timeout=300s
         echo "Database layer deployed"
     
     - name: Deploy application layer
       run: |
         echo "Deploying application layer..."
-        sed -i 's|eduplatform-backend:local|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest|g' k8s/backend-api.yaml
-        sed -i 's|eduplatform-frontend:local|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest|g' k8s/frontend.yaml
         kubectl apply -f k8s/backend-api.yaml
         kubectl apply -f k8s/frontend.yaml
         kubectl apply -f k8s/ingress.yaml
