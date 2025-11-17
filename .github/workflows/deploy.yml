@@ -8,13 +8,11 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # IMAGE_NAME будет задан в каждом job отдельно
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    env:
-      IMAGE_NAME: ${{ lower(github.repository) }}  # ← ПРАВИЛЬНЫЙ СИНТАКСИС
     steps:
     - uses: actions/checkout@v4
     
@@ -57,8 +55,7 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    env:
-      IMAGE_NAME: ${{ lower(github.repository) }}  # ← ПРАВИЛЬНЫЙ СИНТАКСИС
+    
     steps:
     - uses: actions/checkout@v4
     
@@ -105,7 +102,7 @@ jobs:
         sed -i 's|eduplatform-backend:local|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest|g' k8s/backend-api.yaml
         sed -i 's|eduplatform-frontend:local|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest|g' k8s/frontend.yaml
         
-        # Деплой (БЕЗ network-policy.yaml)
+        # Деплой
         kubectl apply -f k8s/namespace.yaml
         kubectl apply -f k8s/configmap.yaml
         kubectl apply -f k8s/postgresql.yaml
