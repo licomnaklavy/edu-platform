@@ -61,11 +61,23 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    timeout-minutes: 20
+    timeout-minutes: 25
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+    
+    - name: Set up k3d
+      run: |
+        # Install k3d
+        curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+        
+        # Create k3d cluster
+        k3d cluster create eduplatform-ci \
+          --port "80:30080@loadbalancer" \
+          --port "8000:30800@loadbalancer" \
+          --agents 1
+        echo "k3d cluster created"
     
     - name: Build Backend image
       run: |
@@ -79,24 +91,15 @@ jobs:
         docker build -t eduplatform-frontend:latest .
         echo "Frontend image built"
     
-    - name: Set up Kubernetes
-      uses: azure/setup-kubectl@v3
-    
-    - name: Configure Kubernetes access
-      run: |
-        mkdir -p ~/.kube
-        echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
-        chmod 600 ~/.kube/config
-        kubectl cluster-info
-        kubectl get nodes
-        echo "Kubernetes cluster access configured"
-    
     - name: Import images to k3d
       run: |
         # Import images to k3d cluster
-        k3d image import eduplatform-backend:latest -c eduplatform
-        k3d image import eduplatform-frontend:latest -c eduplatform
+        k3d image import eduplatform-backend:latest -c eduplatform-ci
+        k3d image import eduplatform-frontend:latest -c eduplatform-ci
         echo "Images imported to k3d cluster"
+    
+    - name: Set up Kubernetes
+      uses: azure/setup-kubectl@v3
     
     - name: Deploy database layer
       run: |
@@ -132,15 +135,18 @@ jobs:
     - name: Run smoke tests
       run: |
         echo "Running smoke tests..."
-        for i in 1 2 3 4 5 6; do
+        
+        # Test backend health endpoint
+        for i in {1..30}; do
           if curl -f -s "http://localhost:30800/health" > /dev/null; then
             echo "Backend health check PASSED"
             break
           fi
-          echo "Waiting for backend... attempt $i"
-          sleep 10
+          echo "Waiting for backend... attempt $i/30"
+          sleep 5
         done
         
+        # Test frontend
         if curl -f -s "http://localhost:30080" > /dev/null; then
           echo "Frontend accessibility test PASSED"
         else
@@ -151,7 +157,20 @@ jobs:
     
     - name: Deployment summary
       run: |
-        echo "DEPLOYMENT SUCCESSFUL"
+        echo "=== DEPLOYMENT SUCCESSFUL ==="
+        echo "Cluster Info:"
+        kubectl cluster-info
+        echo ""
+        echo "Resources in eduplatform namespace:"
         kubectl get all -n eduplatform
+        echo ""
+        echo "Access URLs:"
         echo "Frontend: http://localhost:30080"
         echo "Backend API: http://localhost:30800"
+        echo "Backend Health: http://localhost:30800/health"
+    
+    - name: Cleanup k3d cluster
+      if: always()
+      run: |
+        k3d cluster delete eduplatform-ci
+        echo "k3d cluster cleaned up"

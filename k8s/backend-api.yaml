@@ -22,7 +22,7 @@ spec:
           value: "password"
       containers:
       - name: backend-api
-        image: eduplatform-backend:local  # ← Должно быть так
+        image: eduplatform-backend:latest
         imagePullPolicy: Never  # ← ВАЖНО: использовать локальный образ
         ports:
         - containerPort: 8000

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: eduplatform-frontend:local  # ← Должно быть так
+        image: image: eduplatform-backend:latest
         imagePullPolicy: Never  # ← ВАЖНО: использовать локальный образ
         ports:
         - containerPort: 80
