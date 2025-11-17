@@ -20,7 +20,14 @@ security = HTTPBearer()
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://frontend:80"],
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+        "http://frontend-service:80",
+        "http://frontend-service.eduplatform.svc.cluster.local:80"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

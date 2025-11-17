@@ -1,6 +1,6 @@
 // API functions for backend communication
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = ''; // Use relative URLs - nginx will proxy to backend
 
 // Get auth token from localStorage
 function getAuthToken() {

@@ -7,11 +7,12 @@ COPY . /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Создаем health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
 
-# Экспонируем порт
+# Создаем не-root пользователя
+RUN chown -R nginx:nginx /usr/share/nginx/html
+
 EXPOSE 80
 
-# Запускаем nginx
 CMD ["nginx", "-g", "daemon off;"]
