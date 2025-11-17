@@ -5,6 +5,7 @@ docker-compose down 2>$null
 k3d cluster delete eduplatform 2>$null
 docker rmi eduplatform-backend:local eduplatform-frontend:local --force 2>$null
 
+# Запуск
 k3d cluster create eduplatform --port "80:30080@loadbalancer" --port "8000:30800@loadbalancer" --agents 2
 
 docker build -t eduplatform-backend:local ./backend
@@ -31,6 +32,9 @@ kubectl wait --for=condition=ready pod -l app=backend-api -n eduplatform --timeo
 
 # Frontend
 kubectl apply -f k8s/frontend.yaml
+
+# ingress
+kubectl apply -f k8s/ingress.yaml
 
 # Диагностика
 kubectl get pods,svc -n eduplatform
