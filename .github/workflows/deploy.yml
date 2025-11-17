@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository | lower }}  # ← ИСПРАВЛЕНО: добавлен | lower
 
 jobs:
   build-and-test:
@@ -114,7 +114,6 @@ jobs:
         kubectl apply -f k8s/backend-api.yaml
         kubectl apply -f k8s/frontend.yaml
         kubectl apply -f k8s/ingress.yaml
-        # network-policy.yaml НЕ ПРИМЕНЯЕМ - он ломает connectivity
     
     - name: Verify Deployment
       run: |
