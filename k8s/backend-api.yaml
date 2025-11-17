@@ -23,7 +23,7 @@ spec:
       containers:
       - name: backend-api
         image: eduplatform-backend:latest
-        imagePullPolicy: Never  # ← ВАЖНО: использовать локальный образ
+        imagePullPolicy: Never
         ports:
         - containerPort: 8000
         env:
@@ -33,18 +33,27 @@ spec:
           value: "debug-key"
         - name: PGPASSWORD
           value: "password"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
         livenessProbe:
           httpGet:
             path: /health
             port: 8000
           initialDelaySeconds: 60
           periodSeconds: 10
+          timeoutSeconds: 5
         readinessProbe:
           httpGet:
             path: /health
             port: 8000
           initialDelaySeconds: 30
           periodSeconds: 5
+          timeoutSeconds: 3
 ---
 apiVersion: v1
 kind: Service
