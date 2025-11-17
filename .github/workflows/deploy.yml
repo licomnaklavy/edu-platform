@@ -45,7 +45,31 @@ jobs:
     
     - name: Test Backend Image
       run: |
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} python -c "import app.main; print('✅ Backend imports work')"
+        # Проверяем базовую функциональность
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} python -c "
+        print('🧪 Testing backend image...')
+        
+        # Проверяем основные импорты
+        try:
+            import app.main
+            import app.models
+            import app.schemas
+            import app.crud
+            import app.database
+            print('✅ All modules imported successfully')
+            
+            # Проверяем что модели определяются
+            from app.models import User, Course
+            print('✅ Models defined correctly')
+            
+            print('🎉 Backend image test passed!')
+        except Exception as e:
+            print(f'❌ Test failed: {e}')
+            raise
+        "
+        
+        # Запускаем существующие тесты (они пропустят тесты БД в CI)
+        docker run --rm -e CI=true ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} python -m pytest tests/ -v
     
     - name: Test Frontend Image
       run: |
