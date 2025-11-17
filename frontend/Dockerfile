@@ -3,8 +3,11 @@ FROM nginx:alpine
 # Копируем статические файлы
 COPY . /usr/share/nginx/html
 
-# Копируем конфигурацию nginx
+# Копируем конфигурацию nginx (по умолчанию для продакшена)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Копируем тестовую конфигурацию
+COPY nginx-test.conf /etc/nginx/conf.d/test.conf
 
 # Создаем health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
