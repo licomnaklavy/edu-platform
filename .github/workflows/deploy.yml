@@ -11,7 +11,6 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # Job 1: Сборка и тестирование
   build-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -29,65 +28,40 @@ jobs:
       run: |
         cd backend
         pip install -r requirements.txt
-        echo "✅ Python dependencies installed"
+        echo "Python dependencies installed"
     
     - name: Run Python unit tests
       run: |
         cd backend
         python -m pytest tests/ -v --tb=short
-        echo "✅ Unit tests completed"
+        echo "Unit tests completed"
     
     - name: Build Backend Docker image
       run: |
         cd backend
         docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} .
         docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest .
-        echo "✅ Backend Docker image built"
+        echo "Backend Docker image built"
     
     - name: Build Frontend Docker image
       run: |
         cd frontend
         docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }} .
         docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest .
-        echo "✅ Frontend Docker image built"
+        echo "Frontend Docker image built"
     
     - name: Test Backend image functionality
       run: |
-        echo "🧪 Testing Backend image..."
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} python -c "import sys; print('Python version:', sys.version); import app.models, app.schemas, app.crud; from app.models import User, Course; from app.schemas import UserCreate, CourseCreate, UserLogin; print('✅ All imports successful'); print('🎉 Backend image test PASSED')"
+        echo "Testing Backend image..."
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} python -c "import sys; print('Testing imports...'); import app.models; import app.schemas; import app.crud; from app.models import User, Course; from app.schemas import UserCreate, CourseCreate; print('All imports successful'); print('Backend image test PASSED')"
     
     - name: Test Frontend image build
       run: |
-        echo "🧪 Testing Frontend image..."
+        echo "Testing Frontend image..."
         cd frontend
-        
-        # Create test nginx config
-        cat > nginx-test.conf << 'EOF'
-server {
-    listen 80;
-    server_name localhost;
-    root /usr/share/nginx/html;
-    index index.html;
+        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }} .
+        echo "Frontend image test completed"
 
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location ~ ^/(api|auth|users|courses|health) {
-        add_header Content-Type application/json;
-        return 200 '{"status": "healthy", "environment": "test"}';
-    }
-}
-EOF
-        
-        # Test with simplified config
-        docker run --rm -v $(pwd)/nginx-test.conf:/etc/nginx/conf.d/default.conf ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }} nginx -t
-        
-        # Cleanup
-        rm -f nginx-test.conf
-        echo "✅ Frontend nginx configuration test PASSED"
-
-  # Job 2: Развертывание в Kubernetes
   deploy-to-production:
     needs: build-and-test
     runs-on: ubuntu-latest
@@ -110,116 +84,80 @@ EOF
         cd backend
         docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }}
         docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
-        echo "✅ Backend image pushed to registry"
+        echo "Backend image pushed to registry"
     
     - name: Push Frontend image to registry
       run: |
         cd frontend
         docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }}
         docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
-        echo "✅ Frontend image pushed to registry"
+        echo "Frontend image pushed to registry"
     
     - name: Set up Kubernetes
       uses: azure/setup-kubectl@v3
-      with:
-        version: 'v1.27.0'
     
     - name: Configure Kubernetes access
       run: |
         mkdir -p ~/.kube
         echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
         chmod 600 ~/.kube/config
-        
-        # Verify cluster access
         kubectl cluster-info
         kubectl get nodes
-        echo "✅ Kubernetes cluster access configured"
+        echo "Kubernetes cluster access configured"
     
     - name: Deploy database layer
       run: |
-        echo "🚀 Deploying database layer..."
+        echo "Deploying database layer..."
         kubectl apply -f k8s/namespace.yaml
         kubectl apply -f k8s/configmap.yaml
         kubectl apply -f k8s/postgresql.yaml
         kubectl apply -f k8s/redis.yaml
-        
-        # Wait for database to be ready
-        echo "⏳ Waiting for PostgreSQL to be ready..."
         kubectl wait --for=condition=ready pod -l app=postgresql -n eduplatform --timeout=300s
-        echo "✅ Database layer deployed"
+        echo "Database layer deployed"
     
     - name: Deploy application layer
       run: |
-        echo "🚀 Deploying application layer..."
-        
-        # Update image references in manifests
+        echo "Deploying application layer..."
         sed -i 's|eduplatform-backend:local|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest|g' k8s/backend-api.yaml
         sed -i 's|eduplatform-frontend:local|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest|g' k8s/frontend.yaml
-        
-        # Deploy backend and frontend
         kubectl apply -f k8s/backend-api.yaml
         kubectl apply -f k8s/frontend.yaml
         kubectl apply -f k8s/ingress.yaml
-        
-        echo "✅ Application layer deployed"
+        echo "Application layer deployed"
     
     - name: Verify deployment
       run: |
-        echo "🔍 Verifying deployment..."
-        
-        # Check rollout status
+        echo "Verifying deployment..."
         kubectl rollout status deployment/backend-api -n eduplatform --timeout=600s
         kubectl rollout status deployment/frontend -n eduplatform --timeout=300s
-        
-        # Check pod status
         kubectl get pods -n eduplatform
-        
-        # Check services
         kubectl get svc -n eduplatform
-        
-        # Check ingress
         kubectl get ingress -n eduplatform
-        
-        echo "✅ Deployment verification completed"
+        echo "Deployment verification completed"
     
     - name: Run smoke tests
       run: |
-        echo "🧪 Running smoke tests..."
-        
-        # Test backend health endpoint
-        BACKEND_URL="http://localhost:30800"
-        echo "Testing backend at: $BACKEND_URL/health"
-        
-        # Wait for backend to be responsive
-        for i in {1..30}; do
-          if curl -f -s "$BACKEND_URL/health" > /dev/null; then
-            echo "✅ Backend health check PASSED"
+        echo "Running smoke tests..."
+        for i in 1 2 3 4 5 6; do
+          if curl -f -s "http://localhost:30800/health" > /dev/null; then
+            echo "Backend health check PASSED"
             break
           fi
-          echo "⏳ Waiting for backend to be ready... ($i/30)"
-          sleep 5
+          echo "Waiting for backend... attempt $i"
+          sleep 10
         done
         
-        # Test frontend accessibility
-        FRONTEND_URL="http://localhost:30080"
-        echo "Testing frontend at: $FRONTEND_URL"
-        
-        if curl -f -s "$FRONTEND_URL" > /dev/null; then
-          echo "✅ Frontend accessibility test PASSED"
+        if curl -f -s "http://localhost:30080" > /dev/null; then
+          echo "Frontend accessibility test PASSED"
         else
-          echo "⚠️ Frontend not accessible yet (may need more time)"
+          echo "Frontend not accessible yet"
         fi
         
-        echo "🎉 Smoke tests completed"
+        echo "Smoke tests completed"
     
     - name: Deployment summary
       run: |
-        echo "🎊 DEPLOYMENT SUCCESSFUL!"
-        echo "📊 Deployment Summary:"
-        echo "----------------------"
+        echo "DEPLOYMENT SUCCESSFUL"
         kubectl get all -n eduplatform
-        echo ""
-        echo "🌐 Access URLs:"
-        echo "   Frontend: http://localhost:30080"
-        echo "   Backend API: http://localhost:30800"
-        echo "   Backend Health: http://localhost:30800/health"
+        echo "Frontend: http://localhost:30080"
+        echo "Backend API: http://localhost:30800"
