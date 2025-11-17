@@ -47,31 +47,21 @@ jobs:
             exit(1)
         "
     
-    - name: Build Backend Docker image
+    - name: Build and Test Backend Docker image
       run: |
         cd backend
         docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} .
         docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest .
-        echo "Backend Docker image built"
+        echo "Testing Backend image..."
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} python -c "import sys; print('Testing imports...'); import app.models; import app.schemas; import app.crud; from app.models import User, Course; from app.schemas import UserCreate, CourseCreate; print('All imports successful'); print('Backend image test PASSED')"
+        echo "Backend Docker image built and tested"
     
-    - name: Build Frontend Docker image
+    - name: Build and Test Frontend Docker image
       run: |
         cd frontend
         docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }} .
         docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest .
         echo "Frontend Docker image built"
-    
-    - name: Test Backend image functionality
-      run: |
-        echo "Testing Backend image..."
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} python -c "import sys; print('Testing imports...'); import app.models; import app.schemas; import app.crud; from app.models import User, Course; from app.schemas import UserCreate, CourseCreate; print('All imports successful'); print('Backend image test PASSED')"
-    
-    - name: Test Frontend image build
-      run: |
-        echo "Testing Frontend image..."
-        cd frontend
-        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }} .
-        echo "Frontend image test completed"
 
   deploy-to-production:
     needs: build-and-test
@@ -90,16 +80,20 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: Push Backend image to registry
+    - name: Build and Push Backend image
       run: |
         cd backend
+        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }} .
+        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest .
         docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }}
         docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
         echo "Backend image pushed to registry"
     
-    - name: Push Frontend image to registry
+    - name: Build and Push Frontend image
       run: |
         cd frontend
+        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }} .
+        docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest .
         docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }}
         docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
         echo "Frontend image pushed to registry"
