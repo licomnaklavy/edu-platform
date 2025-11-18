@@ -3,16 +3,15 @@ kubectl delete -f k8s/ --ignore-not-found=true
 kubectl delete namespace eduplatform --ignore-not-found=true
 docker-compose down 2>$null
 k3d cluster delete eduplatform 2>$null
-docker rmi eduplatform-backend:local eduplatform-frontend:local --force 2>$null
+docker rmi eduplatform-backend:latest eduplatform-frontend:latest --force 2>$null
 
 # Запуск
 k3d cluster create eduplatform --port "80:30080@loadbalancer" --port "8000:30800@loadbalancer" --agents 2
 
-docker build -t eduplatform-backend:local ./backend
-docker build -t eduplatform-frontend:local ./frontend
+docker build -t eduplatform-backend:latest ./backend
+docker build -t eduplatform-frontend:latest ./frontend
 
-# Импорт
-k3d image import eduplatform-backend:local eduplatform-frontend:local -c eduplatform
+k3d image import eduplatform-backend:latest eduplatform-frontend:latest -c eduplatform
 
 # Базовые ресурсы
 kubectl apply -f k8s/namespace.yaml

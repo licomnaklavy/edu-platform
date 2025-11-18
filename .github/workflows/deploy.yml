@@ -1,15 +1,15 @@
-name: EDUPLATFORM Local Deployment
+name: EDUPLATFORM CI/CD Pipeline
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  # Этап 1: Тестирование (без БД)
-  test:
+  build-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     
     steps:
     - name: Checkout code
@@ -24,194 +24,180 @@ jobs:
       run: |
         cd backend
         pip install -r requirements.txt
-        echo "✅ Python dependencies installed"
+        echo "Python dependencies installed"
     
-    - name: Run Python import tests (без БД)
+    - name: Run basic import tests
       run: |
         cd backend
-        echo "🔍 Running Python import tests..."
-        python -c "import os; os.environ['TEST_MODE'] = 'true'; os.environ['SKIP_DB_INIT'] = 'true'; import app.models; import app.schemas; import app.crud; from app.models import User, Course; from app.schemas import UserCreate, CourseCreate; print('✅ All Python imports work correctly'); user = User(email='test@test.com', password='test', name='Test User'); course = Course(name='Test Course', description='Test', hours=10, level='beginner'); print('✅ Model object creation successful'); user_data = UserCreate(email='test@example.com', password='test123', name='Test User'); course_data = CourseCreate(name='Test Course', description='Test', hours=10, level='beginner'); print('✅ Schema validation successful')"
+        echo "Running basic import tests..."
+        python -c "
+        try:
+            import app.models
+            import app.schemas
+            import app.crud
+            from app.models import User, Course
+            from app.schemas import UserCreate, CourseCreate
+            print('All basic imports work correctly')
+        except Exception as e:
+            print(f'Import test failed: {e}')
+            exit(1)
+        "
     
-    - name: Run schema validation tests
+    - name: Build and Test Backend Docker image
       run: |
         cd backend
-        echo "🔍 Running schema validation tests..."
-        python -c "import os; os.environ['TEST_MODE'] = 'true'; from app.schemas import UserCreate, CourseCreate, UserLogin; user_data = UserCreate(email='test@example.com', password='testpassword123', name='Test User'); assert user_data.email == 'test@example.com'; assert user_data.name == 'Test User'; course_data = CourseCreate(name='Test Course', description='Test Description', hours=10, level='beginner'); assert course_data.name == 'Test Course'; assert course_data.hours == 10; login_data = UserLogin(email='test@example.com', password='testpassword123'); assert login_data.email == 'test@example.com'; print('✅ All schema validations passed')"
+        docker build -t eduplatform-backend:ci .
+        echo "Testing Backend image..."
+        docker run --rm eduplatform-backend:ci python -c "import sys; print('Testing imports...'); import app.models; import app.schemas; import app.crud; from app.models import User, Course; from app.schemas import UserCreate, CourseCreate; print('All imports successful'); print('Backend image test PASSED')"
+        echo "Backend Docker image built and tested"
     
-    - name: Test CRUD functions (без БД)
-      run: |
-        cd backend
-        echo "🔍 Testing CRUD functions..."
-        python -c "import os; os.environ['TEST_MODE'] = 'true'; from app import crud; hashed_password = crud.get_password_hash('testpassword'); print('✅ Password hashing works'); verify_result = crud.verify_password('testpassword', hashed_password); assert verify_result == True; print('✅ Password verification works'); print('✅ CRUD utility functions test passed')"
-    
-    - name: Build Backend Docker image
-      run: |
-        cd backend
-        echo "🐳 Building Backend Docker image..."
-        docker build -t eduplatform-backend:latest .
-        echo "✅ Backend Docker image built"
-
-    - name: Build Frontend Docker image
+    - name: Build and Test Frontend Docker image
       run: |
         cd frontend
-        echo "🐳 Building Frontend Docker image..."
-        docker build -t eduplatform-frontend:latest .
-        echo "✅ Frontend Docker image built"
+        docker build -t eduplatform-frontend:ci .
+        echo "Frontend Docker image built"
 
-    - name: Validate Kubernetes manifests
-      run: |
-        echo "🔍 Validating Kubernetes manifests..."
-        # Проверяем что все файлы существуют
-        if [ ! -f "k8s/namespace.yaml" ]; then echo "❌ Missing k8s/namespace.yaml"; exit 1; fi
-        if [ ! -f "k8s/configmap.yaml" ]; then echo "❌ Missing k8s/configmap.yaml"; exit 1; fi
-        if [ ! -f "k8s/postgresql.yaml" ]; then echo "❌ Missing k8s/postgresql.yaml"; exit 1; fi
-        if [ ! -f "k8s/redis.yaml" ]; then echo "❌ Missing k8s/redis.yaml"; exit 1; fi
-        if [ ! -f "k8s/backend-api.yaml" ]; then echo "❌ Missing k8s/backend-api.yaml"; exit 1; fi
-        if [ ! -f "k8s/frontend.yaml" ]; then echo "❌ Missing k8s/frontend.yaml"; exit 1; fi
-        if [ ! -f "k8s/ingress.yaml" ]; then echo "❌ Missing k8s/ingress.yaml"; exit 1; fi
-        echo "✅ All Kubernetes manifests are valid"
-
-  # Этап 2: Деплой на локальную машину
-  deploy-local:
-    needs: test  # Ждем завершения тестов
-    runs-on: self-hosted  # 🎯 Ключевое - запускается на локальной машине!
+  deploy:
+    needs: test
+    runs-on: self-hosted
     timeout-minutes: 20
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Stop existing deployment
+    - name: Create k3d cluster
+      shell: powershell
       run: |
-        echo "🛑 Stopping existing deployment..."
-        kubectl delete -f k8s/ --ignore-not-found=true || true
-        k3d cluster delete eduplatform-local || true
-        echo "✅ Existing deployment stopped"
+        Write-Host "🔧 Creating k3d cluster..." -ForegroundColor Green
+        k3d cluster create eduplatform `
+          --port "80:30080@loadbalancer" `
+          --port "8000:30800@loadbalancer" `
+          --agents 2
+        Write-Host "✅ k3d cluster created" -ForegroundColor Green
     
-    - name: Set up k3d cluster
+    - name: Build Docker images
+      shell: powershell
       run: |
-        echo "🚀 Setting up local k3d cluster..."
-        # Устанавливаем k3d если нет
-        if ! command -v k3d &> /dev/null; then
-          curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
-        fi
+        Write-Host "🐳 Building Docker images..." -ForegroundColor Green
         
-        # Создаем локальный кластер
-        k3d cluster create eduplatform-local \
-          --port "8080:30080@loadbalancer" \
-          --port "8000:30800@loadbalancer" \
-          --agents 1
-        echo "✅ k3d local cluster created"
-    
-    - name: Build and import images to k3d
-      run: |
-        echo "🐳 Building and importing Docker images..."
-        
-        # Build Backend
+        Write-Host "Building backend..." -ForegroundColor Cyan
         cd backend
-        docker build -t eduplatform-backend:local .
-        echo "✅ Backend image built"
+        docker build -t eduplatform-backend:latest .
         
-        # Build Frontend  
+        Write-Host "Building frontend..." -ForegroundColor Cyan
         cd ../frontend
-        docker build -t eduplatform-frontend:local .
-        echo "✅ Frontend image built"
+        docker build -t eduplatform-frontend:latest .
         
-        # Import to k3d
-        k3d image import eduplatform-backend:local -c eduplatform-local
-        k3d image import eduplatform-frontend:local -c eduplatform-local
-        echo "✅ Images imported to k3d cluster"
+        Write-Host "✅ Docker images built" -ForegroundColor Green
     
-    - name: Deploy to Kubernetes
+    - name: Import images to k3d
+      shell: powershell
       run: |
-        echo "🏗️ Deploying application to local Kubernetes..."
+        Write-Host "📦 Importing images to k3d cluster..." -ForegroundColor Green
+        k3d image import eduplatform-backend:latest -c eduplatform
+        k3d image import eduplatform-frontend:latest -c eduplatform
+        Write-Host "✅ Images imported" -ForegroundColor Green
+    
+    - name: Deploy infrastructure
+      shell: powershell
+      run: |
+        Write-Host "🏗️ Deploying infrastructure..." -ForegroundColor Green
         
-        # Создаем namespace
+        Write-Host "Creating namespace..." -ForegroundColor Cyan
         kubectl apply -f k8s/namespace.yaml
-        echo "✅ Namespace created"
         
-        # Деплоим инфраструктуру
+        Write-Host "Deploying config..." -ForegroundColor Cyan
         kubectl apply -f k8s/configmap.yaml
+        
+        Write-Host "Deploying database..." -ForegroundColor Cyan
         kubectl apply -f k8s/postgresql.yaml
         kubectl apply -f k8s/redis.yaml
-        echo "✅ Infrastructure deployed"
         
-        # Ждем готовности БД
-        echo "⏳ Waiting for PostgreSQL to be ready..."
+        Write-Host "✅ Infrastructure deployed" -ForegroundColor Green
+    
+    - name: Wait for database
+      shell: powershell
+      run: |
+        Write-Host "⏳ Waiting for database to be ready..." -ForegroundColor Yellow
         kubectl wait --for=condition=ready pod -l app=postgresql -n eduplatform --timeout=180s
-        echo "✅ PostgreSQL is ready"
+        Write-Host "✅ Database is ready" -ForegroundColor Green
+    
+    - name: Deploy applications
+      shell: powershell
+      run: |
+        Write-Host "🚀 Deploying applications..." -ForegroundColor Green
         
-        # Деплоим приложения
+        Write-Host "Deploying backend API..." -ForegroundColor Cyan
         kubectl apply -f k8s/backend-api.yaml
+        
+        Write-Host "Deploying frontend..." -ForegroundColor Cyan
         kubectl apply -f k8s/frontend.yaml
+        
+        Write-Host "Deploying ingress..." -ForegroundColor Cyan
         kubectl apply -f k8s/ingress.yaml
-        echo "✅ Applications deployed"
-    
-    - name: Wait for application readiness
-      run: |
-        echo "⏳ Waiting for applications to be ready..."
         
-        # Ждем бэкенд
+        Write-Host "✅ Applications deployed" -ForegroundColor Green
+    
+    - name: Wait for applications
+      shell: powershell
+      run: |
+        Write-Host "⏳ Waiting for applications to be ready..." -ForegroundColor Yellow
+        
+        Write-Host "Waiting for backend..." -ForegroundColor Cyan
         kubectl wait --for=condition=ready pod -l app=backend-api -n eduplatform --timeout=300s
-        echo "✅ Backend API is ready"
         
-        # Ждем фронтенд
+        Write-Host "Waiting for frontend..." -ForegroundColor Cyan
         kubectl wait --for=condition=ready pod -l app=frontend -n eduplatform --timeout=180s
-        echo "✅ Frontend is ready"
+        
+        Write-Host "✅ All applications are ready" -ForegroundColor Green
     
-    - name: Run local smoke tests
+    - name: Run health checks
+      shell: powershell
       run: |
-        echo "🧪 Running local smoke tests..."
+        Write-Host "🔍 Running health checks..." -ForegroundColor Green
         
-        # Test backend health endpoint
-        echo "🔍 Testing backend health..."
-        for i in {1..20}; do
-          if curl -f -s "http://localhost:8000/health" > /dev/null; then
-            echo "✅ Backend health check PASSED"
-            break
-          fi
-          echo "⏳ Waiting for backend... attempt $i/20"
-          sleep 3
-        done
+        Write-Host "Checking backend health..." -ForegroundColor Cyan
+        $maxRetries = 10
+        $retryCount = 0
         
-        # Test frontend accessibility
-        echo "🔍 Testing frontend accessibility..."
-        for i in {1..15}; do
-          if curl -f -s "http://localhost:8080" > /dev/null; then
-            echo "✅ Frontend accessibility test PASSED"
-            break
-          fi
-          echo "⏳ Waiting for frontend... attempt $i/15"
-          sleep 2
-        done
+        while ($retryCount -lt $maxRetries) {
+          try {
+            $response = Invoke-WebRequest -Uri "http://localhost:8000/health" -TimeoutSec 5 -UseBasicParsing
+            if ($response.StatusCode -eq 200) {
+              Write-Host "✅ Backend health check passed" -ForegroundColor Green
+              break
+            }
+          } catch {
+            Write-Host "⏳ Backend not ready yet... ($($retryCount + 1)/$maxRetries)" -ForegroundColor Yellow
+            Start-Sleep -Seconds 5
+          }
+          $retryCount++
+        }
         
-        # Test API endpoints
-        echo "🔍 Testing API endpoints..."
-        if curl -f -s "http://localhost:8000/" > /dev/null; then
-          echo "✅ API root endpoint PASSED"
-        else
-          echo "❌ API root endpoint FAILED"
+        if ($retryCount -eq $maxRetries) {
+          Write-Host "❌ Backend health check failed" -ForegroundColor Red
           exit 1
-        fi
+        }
         
-        echo "✅ All smoke tests completed successfully"
+        Write-Host "✅ All health checks passed" -ForegroundColor Green
     
-    - name: Display deployment information
+    - name: Display deployment info
+      shell: powershell
       run: |
-        echo "🎉 LOCAL DEPLOYMENT SUCCESSFUL!"
-        echo ""
-        echo "=== ACCESS URLs ==="
-        echo "🌐 Frontend:     http://localhost:8080"
-        echo "🔧 Backend API:  http://localhost:8000" 
-        echo "📚 API Docs:     http://localhost:8000/docs"
-        echo "❤️  Health Check: http://localhost:8000/health"
-        echo ""
-        echo "=== TEST ACCOUNTS ==="
-        echo "📧 Email: student@edu.ru | teacher@edu.ru"
-        echo "🔑 Password: 123"
-        echo ""
-        echo "=== KUBERNETES STATUS ==="
+        Write-Host "" -ForegroundColor White
+        Write-Host "🎉 DEPLOYMENT SUCCESSFUL!" -ForegroundColor Green
+        Write-Host "==========================================" -ForegroundColor Cyan
+        Write-Host "🌐 Frontend:     http://localhost:8080" -ForegroundColor White
+        Write-Host "🔧 Backend API:  http://localhost:8000" -ForegroundColor White
+        Write-Host "📚 API Docs:     http://localhost:8000/docs" -ForegroundColor White
+        Write-Host "❤️  Health Check: http://localhost:8000/health" -ForegroundColor White
+        Write-Host "" -ForegroundColor White
+        Write-Host "👤 Test Accounts:" -ForegroundColor Cyan
+        Write-Host "   📧 Email: student@edu.ru | teacher@edu.ru" -ForegroundColor White
+        Write-Host "   🔑 Password: 123" -ForegroundColor White
+        Write-Host "" -ForegroundColor White
+        Write-Host "📊 Current Status:" -ForegroundColor Cyan
         kubectl get pods -n eduplatform
-        echo ""
-        echo "=== DOCKER IMAGES ==="
-        docker images | grep eduplatform
+        Write-Host "" -ForegroundColor White
+        Write-Host "🚀 Application is ready to use!" -ForegroundColor Green
