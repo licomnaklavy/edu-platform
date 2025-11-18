@@ -11,6 +11,7 @@ k3d cluster create eduplatform --port "80:30080@loadbalancer" --port "8000:30800
 docker build -t eduplatform-backend:local ./backend
 docker build -t eduplatform-frontend:local ./frontend
 
+# Импорт
 k3d image import eduplatform-backend:local eduplatform-frontend:local -c eduplatform
 
 # Базовые ресурсы
