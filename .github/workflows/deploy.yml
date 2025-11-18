@@ -30,107 +30,19 @@ jobs:
       run: |
         cd backend
         echo "🔍 Running Python import tests..."
-        python -c "
-import os
-# Блокируем подключение к БД для тестов
-os.environ['TEST_MODE'] = 'true'
-os.environ['SKIP_DB_INIT'] = 'true'
-
-try:
-    # Импортируем модули
-    import app.models
-    import app.schemas
-    import app.crud
-    from app.models import User, Course
-    from app.schemas import UserCreate, CourseCreate
-    
-    print('✅ All Python imports work correctly')
-    
-    # Тестируем создание объектов
-    user = User(email='test@test.com', password='test', name='Test User')
-    course = Course(name='Test Course', description='Test', hours=10, level='beginner')
-    print('✅ Model object creation successful')
-    
-    # Тестируем схемы
-    user_data = UserCreate(email='test@example.com', password='test123', name='Test User')
-    course_data = CourseCreate(name='Test Course', description='Test', hours=10, level='beginner')
-    print('✅ Schema validation successful')
-    
-except Exception as e:
-    print(f'❌ Import test failed: {e}')
-    exit(1)
-        "
+        python -c "import os; os.environ['TEST_MODE'] = 'true'; os.environ['SKIP_DB_INIT'] = 'true'; import app.models; import app.schemas; import app.crud; from app.models import User, Course; from app.schemas import UserCreate, CourseCreate; print('✅ All Python imports work correctly'); user = User(email='test@test.com', password='test', name='Test User'); course = Course(name='Test Course', description='Test', hours=10, level='beginner'); print('✅ Model object creation successful'); user_data = UserCreate(email='test@example.com', password='test123', name='Test User'); course_data = CourseCreate(name='Test Course', description='Test', hours=10, level='beginner'); print('✅ Schema validation successful')"
     
     - name: Run schema validation tests
       run: |
         cd backend
         echo "🔍 Running schema validation tests..."
-        python -c "
-import os
-os.environ['TEST_MODE'] = 'true'
-
-try:
-    from app.schemas import UserCreate, CourseCreate, UserLogin
-    
-    # Test UserCreate schema
-    user_data = UserCreate(
-        email='test@example.com',
-        password='testpassword123', 
-        name='Test User'
-    )
-    assert user_data.email == 'test@example.com'
-    assert user_data.name == 'Test User'
-    
-    # Test CourseCreate schema
-    course_data = CourseCreate(
-        name='Test Course',
-        description='Test Description', 
-        hours=10,
-        level='beginner'
-    )
-    assert course_data.name == 'Test Course'
-    assert course_data.hours == 10
-    
-    # Test UserLogin schema
-    login_data = UserLogin(
-        email='test@example.com',
-        password='testpassword123'
-    )
-    assert login_data.email == 'test@example.com'
-    
-    print('✅ All schema validations passed')
-    
-except Exception as e:
-    print(f'❌ Schema test failed: {e}')
-    exit(1)
-        "
+        python -c "import os; os.environ['TEST_MODE'] = 'true'; from app.schemas import UserCreate, CourseCreate, UserLogin; user_data = UserCreate(email='test@example.com', password='testpassword123', name='Test User'); assert user_data.email == 'test@example.com'; assert user_data.name == 'Test User'; course_data = CourseCreate(name='Test Course', description='Test Description', hours=10, level='beginner'); assert course_data.name == 'Test Course'; assert course_data.hours == 10; login_data = UserLogin(email='test@example.com', password='testpassword123'); assert login_data.email == 'test@example.com'; print('✅ All schema validations passed')"
     
     - name: Test CRUD functions (без БД)
       run: |
         cd backend
         echo "🔍 Testing CRUD functions..."
-        python -c "
-import os
-os.environ['TEST_MODE'] = 'true'
-
-try:
-    from app import crud
-    
-    # Тестируем хеширование паролей
-    hashed_password = crud.get_password_hash('testpassword')
-    print('✅ Password hashing works')
-    
-    # Тестируем верификацию паролей
-    verify_result = crud.verify_password('testpassword', hashed_password)
-    assert verify_result == True
-    print('✅ Password verification works')
-    
-    print('✅ CRUD utility functions test passed')
-    
-except Exception as e:
-    print(f'❌ CRUD test failed: {e}')
-    exit(1)
-        "
+        python -c "import os; os.environ['TEST_MODE'] = 'true'; from app import crud; hashed_password = crud.get_password_hash('testpassword'); print('✅ Password hashing works'); verify_result = crud.verify_password('testpassword', hashed_password); assert verify_result == True; print('✅ Password verification works'); print('✅ CRUD utility functions test passed')"
     
     - name: Build Backend Docker image
       run: |
@@ -150,23 +62,13 @@ except Exception as e:
       run: |
         echo "🔍 Validating Kubernetes manifests..."
         # Проверяем что все файлы существуют
-        required_files=(
-          "k8s/namespace.yaml"
-          "k8s/configmap.yaml" 
-          "k8s/postgresql.yaml"
-          "k8s/redis.yaml"
-          "k8s/backend-api.yaml"
-          "k8s/frontend.yaml"
-          "k8s/ingress.yaml"
-        )
-        
-        for file in "${required_files[@]}"; do
-          if [ ! -f "$file" ]; then
-            echo "❌ Missing required file: $file"
-            exit 1
-          fi
-          echo "✅ Found: $file"
-        done
+        if [ ! -f "k8s/namespace.yaml" ]; then echo "❌ Missing k8s/namespace.yaml"; exit 1; fi
+        if [ ! -f "k8s/configmap.yaml" ]; then echo "❌ Missing k8s/configmap.yaml"; exit 1; fi
+        if [ ! -f "k8s/postgresql.yaml" ]; then echo "❌ Missing k8s/postgresql.yaml"; exit 1; fi
+        if [ ! -f "k8s/redis.yaml" ]; then echo "❌ Missing k8s/redis.yaml"; exit 1; fi
+        if [ ! -f "k8s/backend-api.yaml" ]; then echo "❌ Missing k8s/backend-api.yaml"; exit 1; fi
+        if [ ! -f "k8s/frontend.yaml" ]; then echo "❌ Missing k8s/frontend.yaml"; exit 1; fi
+        if [ ! -f "k8s/ingress.yaml" ]; then echo "❌ Missing k8s/ingress.yaml"; exit 1; fi
         echo "✅ All Kubernetes manifests are valid"
 
   # Этап 2: Деплой на локальную машину
