@@ -58,7 +58,7 @@ jobs:
         echo "Frontend Docker image built"
 
   deploy:
-    needs: test
+    needs: build-and-test
     runs-on: self-hosted
     timeout-minutes: 20
     
