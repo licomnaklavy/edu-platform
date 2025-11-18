@@ -79,7 +79,7 @@ jobs:
       run: |
         echo "🔧 Creating k3d cluster..."
         k3d cluster create eduplatform \
-          --port "8080:30080@loadbalancer" \
+          --port "80:30080@loadbalancer" \
           --port "8000:30800@loadbalancer" \
           --agents 2
         echo "✅ k3d cluster created"
