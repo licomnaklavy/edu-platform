@@ -7,6 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
+  # Этап 1: Сборка и тестирование
   build-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -24,153 +25,334 @@ jobs:
       run: |
         cd backend
         pip install -r requirements.txt
-        echo "Python dependencies installed"
+        echo "✅ Python dependencies installed"
     
-    - name: Run basic import tests
+    - name: Run Python import tests
       run: |
         cd backend
-        echo "Running basic import tests..."
+        echo "🔍 Running Python import tests..."
         python -c "
         try:
             import app.models
             import app.schemas
             import app.crud
+            import app.database
+            import app.main
             from app.models import User, Course
             from app.schemas import UserCreate, CourseCreate
-            print('All basic imports work correctly')
+            print('✅ All Python imports work correctly')
         except Exception as e:
-            print(f'Import test failed: {e}')
+            print(f'❌ Import test failed: {e}')
             exit(1)
         "
     
-    - name: Build and Test Backend Docker image
+    - name: Run schema validation tests
       run: |
         cd backend
-        docker build -t eduplatform-backend:ci .
-        echo "Testing Backend image..."
-        docker run --rm eduplatform-backend:ci python -c "import sys; print('Testing imports...'); import app.models; import app.schemas; import app.crud; from app.models import User, Course; from app.schemas import UserCreate, CourseCreate; print('All imports successful'); print('Backend image test PASSED')"
-        echo "Backend Docker image built and tested"
+        echo "🔍 Running schema validation tests..."
+        python -c "
+        try:
+            from app.schemas import UserCreate, CourseCreate, UserLogin
+            # Test UserCreate schema
+            user_data = UserCreate(
+                email='test@example.com',
+                password='testpassword123',
+                name='Test User'
+            )
+            # Test CourseCreate schema  
+            course_data = CourseCreate(
+                name='Test Course',
+                description='Test Description',
+                hours=10,
+                level='beginner'
+            )
+            # Test UserLogin schema
+            login_data = UserLogin(
+                email='test@example.com', 
+                password='testpassword123'
+            )
+            print('✅ All schema validations passed')
+        except Exception as e:
+            print(f'❌ Schema test failed: {e}')
+            exit(1)
+        "
     
-    - name: Build and Test Frontend Docker image
+    - name: Build and test Backend Docker image
+      run: |
+        cd backend
+        echo "🐳 Building Backend Docker image..."
+        docker build -t eduplatform-backend:ci .
+        
+        echo "🧪 Testing Backend image..."
+        docker run --rm eduplatform-backend:ci python -c "
+        import sys
+        print('🔍 Testing imports in container...')
+        try:
+            import app.models
+            import app.schemas  
+            import app.crud
+            import app.database
+            import app.main
+            from app.models import User, Course
+            from app.schemas import UserCreate, CourseCreate
+            print('✅ All container imports successful')
+            print('✅ Backend Docker image test PASSED')
+        except Exception as e:
+            print(f'❌ Container import test failed: {e}')
+            sys.exit(1)
+        "
+        echo "✅ Backend Docker image built and tested"
+    
+    - name: Build and test Frontend Docker image
       run: |
         cd frontend
+        echo "🐳 Building Frontend Docker image..."
         docker build -t eduplatform-frontend:ci .
-        echo "Frontend Docker image built"
+        
+        echo "🧪 Testing Frontend image..."
+        docker run --rm -d -p 8080:80 --name frontend-test eduplatform-frontend:ci
+        sleep 5
+        
+        # Test if nginx is serving files
+        if curl -f -s http://localhost:8080/index.html > /dev/null; then
+            echo "✅ Frontend container is serving files correctly"
+            docker stop frontend-test
+        else
+            echo "❌ Frontend container test failed"
+            docker stop frontend-test
+            exit 1
+        fi
+        echo "✅ Frontend Docker image built and tested"
 
+    - name: Run Kubernetes manifest validation
+      run: |
+        echo "🔍 Validating Kubernetes manifests..."
+        # Check if all required k8s files exist
+        required_files=(
+          "k8s/namespace.yaml"
+          "k8s/configmap.yaml" 
+          "k8s/postgresql.yaml"
+          "k8s/redis.yaml"
+          "k8s/backend-api.yaml"
+          "k8s/frontend.yaml"
+          "k8s/ingress.yaml"
+        )
+        
+        for file in "${required_files[@]}"; do
+          if [ ! -f "$file" ]; then
+            echo "❌ Missing required file: $file"
+            exit 1
+          fi
+          echo "✅ Found: $file"
+        done
+        
+        # Basic YAML syntax check
+        for file in k8s/*.yaml; do
+          if python -c "import yaml; yaml.safe_load(open('$file'))"; then
+            echo "✅ Valid YAML: $file"
+          else
+            echo "❌ Invalid YAML: $file"
+            exit 1
+          fi
+        done
+        
+        echo "✅ All Kubernetes manifests are valid"
+
+  # Этап 2: Деплой в продакшен (только для main ветки)
   deploy-to-production:
-    needs: build-and-test
+    needs: build-and-test  # Ждем завершения тестов
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    timeout-minutes: 25
+    if: github.ref == 'refs/heads/main'  # Только для main ветки
+    timeout-minutes: 30
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Set up k3d
+    - name: Set up k3d cluster
       run: |
+        echo "🚀 Setting up production k3d cluster..."
         # Install k3d
         curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
         
-        # Create k3d cluster
-        k3d cluster create eduplatform-ci \
+        # Create production k3d cluster
+        k3d cluster create eduplatform-prod \
           --port "80:30080@loadbalancer" \
           --port "8000:30800@loadbalancer" \
           --agents 1
-        echo "k3d cluster created"
+        echo "✅ k3d production cluster created"
     
-    - name: Build Backend image
+    - name: Build production Docker images
       run: |
+        echo "🐳 Building production Docker images..."
+        
+        # Build Backend
         cd backend
-        docker build -t eduplatform-backend:latest .
-        echo "Backend image built"
+        docker build -t eduplatform-backend:prod .
+        echo "✅ Backend production image built"
+        
+        # Build Frontend  
+        cd ../frontend
+        docker build -t eduplatform-frontend:prod .
+        echo "✅ Frontend production image built"
     
-    - name: Build Frontend image
+    - name: Import images to k3d cluster
       run: |
-        cd frontend
-        docker build -t eduplatform-frontend:latest .
-        echo "Frontend image built"
+        echo "📦 Importing images to k3d cluster..."
+        k3d image import eduplatform-backend:prod -c eduplatform-prod
+        k3d image import eduplatform-frontend:prod -c eduplatform-prod
+        echo "✅ Production images imported to k3d cluster"
     
-    - name: Import images to k3d
-      run: |
-        # Import images to k3d cluster
-        k3d image import eduplatform-backend:latest -c eduplatform-ci
-        k3d image import eduplatform-frontend:latest -c eduplatform-ci
-        echo "Images imported to k3d cluster"
-    
-    - name: Set up Kubernetes
+    - name: Set up Kubernetes tools
       uses: azure/setup-kubectl@v3
     
-    - name: Deploy database layer
+    - name: Deploy infrastructure layer
       run: |
-        echo "Deploying database layer..."
+        echo "🏗️ Deploying infrastructure layer..."
+        
+        # Create namespace first
         kubectl apply -f k8s/namespace.yaml
+        echo "✅ Namespace created"
+        
+        # Deploy configuration
         kubectl apply -f k8s/configmap.yaml
+        echo "✅ ConfigMap deployed"
+        
+        # Deploy database
         kubectl apply -f k8s/postgresql.yaml
         kubectl apply -f k8s/redis.yaml
+        echo "✅ Database services deployed"
         
         # Wait for database to be ready
-        echo "Waiting for PostgreSQL to be ready..."
+        echo "⏳ Waiting for PostgreSQL to be ready..."
         kubectl wait --for=condition=ready pod -l app=postgresql -n eduplatform --timeout=300s
-        echo "Database layer deployed"
+        echo "✅ PostgreSQL is ready"
     
     - name: Deploy application layer
       run: |
-        echo "Deploying application layer..."
+        echo "🚀 Deploying application layer..."
+        
+        # Deploy backend
         kubectl apply -f k8s/backend-api.yaml
+        echo "✅ Backend API deployed"
+        
+        # Deploy frontend
         kubectl apply -f k8s/frontend.yaml
+        echo "✅ Frontend deployed"
+        
+        # Deploy ingress
         kubectl apply -f k8s/ingress.yaml
-        echo "Application layer deployed"
+        echo "✅ Ingress deployed"
     
-    - name: Verify deployment
+    - name: Wait for application readiness
       run: |
-        echo "Verifying deployment..."
-        kubectl rollout status deployment/backend-api -n eduplatform --timeout=600s
-        kubectl rollout status deployment/frontend -n eduplatform --timeout=300s
-        kubectl get pods -n eduplatform
-        kubectl get svc -n eduplatform
-        kubectl get ingress -n eduplatform
-        echo "Deployment verification completed"
+        echo "⏳ Waiting for applications to be ready..."
+        
+        # Wait for backend
+        kubectl wait --for=condition=ready pod -l app=backend-api -n eduplatform --timeout=600s
+        echo "✅ Backend API is ready"
+        
+        # Wait for frontend
+        kubectl wait --for=condition=ready pod -l app=frontend -n eduplatform --timeout=300s
+        echo "✅ Frontend is ready"
     
-    - name: Run smoke tests
+    - name: Run production smoke tests
       run: |
-        echo "Running smoke tests..."
+        echo "🧪 Running production smoke tests..."
         
         # Test backend health endpoint
+        echo "🔍 Testing backend health..."
         for i in {1..30}; do
           if curl -f -s "http://localhost:30800/health" > /dev/null; then
-            echo "Backend health check PASSED"
+            echo "✅ Backend health check PASSED"
             break
           fi
-          echo "Waiting for backend... attempt $i/30"
+          if [ $i -eq 30 ]; then
+            echo "❌ Backend health check FAILED after 30 attempts"
+            exit 1
+          fi
+          echo "⏳ Waiting for backend... attempt $i/30"
           sleep 5
         done
         
-        # Test frontend
-        if curl -f -s "http://localhost:30080" > /dev/null; then
-          echo "Frontend accessibility test PASSED"
+        # Test frontend accessibility
+        echo "🔍 Testing frontend accessibility..."
+        for i in {1..20}; do
+          if curl -f -s "http://localhost:30080" > /dev/null; then
+            echo "✅ Frontend accessibility test PASSED"
+            break
+          fi
+          if [ $i -eq 20 ]; then
+            echo "❌ Frontend accessibility test FAILED after 20 attempts"
+            exit 1
+          fi
+          echo "⏳ Waiting for frontend... attempt $i/20"
+          sleep 3
+        done
+        
+        # Test API endpoints
+        echo "🔍 Testing API endpoints..."
+        if curl -f -s "http://localhost:30800/" > /dev/null; then
+          echo "✅ API root endpoint PASSED"
         else
-          echo "Frontend not accessible yet"
+          echo "❌ API root endpoint FAILED"
+          exit 1
         fi
         
-        echo "Smoke tests completed"
+        echo "✅ All smoke tests completed successfully"
     
-    - name: Deployment summary
+    - name: Verify deployment status
       run: |
-        echo "=== DEPLOYMENT SUCCESSFUL ==="
-        echo "Cluster Info:"
+        echo "📊 Verifying deployment status..."
+        
+        echo "=== PODS STATUS ==="
+        kubectl get pods -n eduplatform -o wide
+        
+        echo ""
+        echo "=== SERVICES STATUS ==="
+        kubectl get svc -n eduplatform
+        
+        echo ""
+        echo "=== INGRESS STATUS ==="
+        kubectl get ingress -n eduplatform
+        
+        echo ""
+        echo "=== DEPLOYMENT STATUS ==="
+        kubectl get deployments -n eduplatform
+    
+    - name: Deployment success summary
+      run: |
+        echo "🎉 DEPLOYMENT SUCCESSFUL!"
+        echo ""
+        echo "=== PRODUCTION ENVIRONMENT ==="
+        echo "📱 Access URLs:"
+        echo "   Frontend:     http://localhost:30080"
+        echo "   Backend API:  http://localhost:30800"
+        echo "   API Docs:     http://localhost:30800/docs"
+        echo "   Health Check: http://localhost:30800/health"
+        echo ""
+        echo "=== CLUSTER INFO ==="
         kubectl cluster-info
         echo ""
-        echo "Resources in eduplatform namespace:"
-        kubectl get all -n eduplatform
-        echo ""
-        echo "Access URLs:"
-        echo "Frontend: http://localhost:30080"
-        echo "Backend API: http://localhost:30800"
-        echo "Backend Health: http://localhost:30800/health"
+        echo "=== RESOURCE USAGE ==="
+        kubectl top nodes 2>/dev/null || echo "Metrics not available"
+        kubectl top pods -n eduplatform 2>/dev/null || echo "Pod metrics not available"
+
+  # Этап 3: Очистка (опционально)
+  cleanup:
+    needs: deploy-to-production
+    runs-on: ubuntu-latest
+    if: always()  # Всегда запускаем, даже если предыдущие шаги упали
     
+    steps:
     - name: Cleanup k3d cluster
-      if: always()
       run: |
-        k3d cluster delete eduplatform-ci
-        echo "k3d cluster cleaned up"
+        echo "🧹 Cleaning up k3d cluster..."
+        k3d cluster delete eduplatform-prod || true
+        echo "✅ k3d cluster cleaned up"
+    
+    - name: Cleanup Docker images
+      run: |
+        echo "🧹 Cleaning up Docker images..."
+        docker system prune -f || true
+        echo "✅ Docker cleanup completed"
