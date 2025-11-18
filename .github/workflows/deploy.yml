@@ -66,138 +66,135 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Create k3d cluster
-      shell: powershell
+    - name: Cleanup previous deployment
       run: |
-        Write-Host "🔧 Creating k3d cluster..." -ForegroundColor Green
-        k3d cluster create eduplatform `
-          --port "80:30080@loadbalancer" `
-          --port "8000:30800@loadbalancer" `
+        echo "🛑 Cleaning up previous deployment..."
+        kubectl delete -f k8s/ --ignore-not-found=true || true
+        kubectl delete namespace eduplatform --ignore-not-found=true || true
+        k3d cluster delete eduplatform --all || true
+        docker system prune -f
+        echo "✅ Cleanup completed"
+    
+    - name: Create k3d cluster
+      run: |
+        echo "🔧 Creating k3d cluster..."
+        k3d cluster create eduplatform \
+          --port "8080:30080@loadbalancer" \
+          --port "8000:30800@loadbalancer" \
           --agents 2
-        Write-Host "✅ k3d cluster created" -ForegroundColor Green
+        echo "✅ k3d cluster created"
     
     - name: Build Docker images
-      shell: powershell
       run: |
-        Write-Host "🐳 Building Docker images..." -ForegroundColor Green
+        echo "🐳 Building Docker images..."
         
-        Write-Host "Building backend..." -ForegroundColor Cyan
+        echo "Building backend..."
         cd backend
         docker build -t eduplatform-backend:latest .
         
-        Write-Host "Building frontend..." -ForegroundColor Cyan
+        echo "Building frontend..."
         cd ../frontend
         docker build -t eduplatform-frontend:latest .
         
-        Write-Host "✅ Docker images built" -ForegroundColor Green
+        echo "✅ Docker images built"
     
     - name: Import images to k3d
-      shell: powershell
       run: |
-        Write-Host "📦 Importing images to k3d cluster..." -ForegroundColor Green
+        echo "📦 Importing images to k3d cluster..."
         k3d image import eduplatform-backend:latest -c eduplatform
         k3d image import eduplatform-frontend:latest -c eduplatform
-        Write-Host "✅ Images imported" -ForegroundColor Green
+        echo "✅ Images imported"
     
     - name: Deploy infrastructure
-      shell: powershell
       run: |
-        Write-Host "🏗️ Deploying infrastructure..." -ForegroundColor Green
+        echo "🏗️ Deploying infrastructure..."
         
-        Write-Host "Creating namespace..." -ForegroundColor Cyan
+        echo "Creating namespace..."
         kubectl apply -f k8s/namespace.yaml
         
-        Write-Host "Deploying config..." -ForegroundColor Cyan
+        echo "Deploying config..."
         kubectl apply -f k8s/configmap.yaml
         
-        Write-Host "Deploying database..." -ForegroundColor Cyan
+        echo "Deploying database..."
         kubectl apply -f k8s/postgresql.yaml
         kubectl apply -f k8s/redis.yaml
         
-        Write-Host "✅ Infrastructure deployed" -ForegroundColor Green
+        echo "✅ Infrastructure deployed"
     
     - name: Wait for database
-      shell: powershell
       run: |
-        Write-Host "⏳ Waiting for database to be ready..." -ForegroundColor Yellow
+        echo "⏳ Waiting for database to be ready..."
         kubectl wait --for=condition=ready pod -l app=postgresql -n eduplatform --timeout=180s
-        Write-Host "✅ Database is ready" -ForegroundColor Green
+        echo "✅ Database is ready"
     
     - name: Deploy applications
-      shell: powershell
       run: |
-        Write-Host "🚀 Deploying applications..." -ForegroundColor Green
+        echo "🚀 Deploying applications..."
         
-        Write-Host "Deploying backend API..." -ForegroundColor Cyan
+        echo "Deploying backend API..."
         kubectl apply -f k8s/backend-api.yaml
         
-        Write-Host "Deploying frontend..." -ForegroundColor Cyan
+        echo "Deploying frontend..."
         kubectl apply -f k8s/frontend.yaml
         
-        Write-Host "Deploying ingress..." -ForegroundColor Cyan
+        echo "Deploying ingress..."
         kubectl apply -f k8s/ingress.yaml
         
-        Write-Host "✅ Applications deployed" -ForegroundColor Green
+        echo "✅ Applications deployed"
     
     - name: Wait for applications
-      shell: powershell
       run: |
-        Write-Host "⏳ Waiting for applications to be ready..." -ForegroundColor Yellow
+        echo "⏳ Waiting for applications to be ready..."
         
-        Write-Host "Waiting for backend..." -ForegroundColor Cyan
+        echo "Waiting for backend..."
         kubectl wait --for=condition=ready pod -l app=backend-api -n eduplatform --timeout=300s
         
-        Write-Host "Waiting for frontend..." -ForegroundColor Cyan
+        echo "Waiting for frontend..."
         kubectl wait --for=condition=ready pod -l app=frontend -n eduplatform --timeout=180s
         
-        Write-Host "✅ All applications are ready" -ForegroundColor Green
+        echo "✅ All applications are ready"
     
     - name: Run health checks
-      shell: powershell
       run: |
-        Write-Host "🔍 Running health checks..." -ForegroundColor Green
+        echo "🔍 Running health checks..."
         
-        Write-Host "Checking backend health..." -ForegroundColor Cyan
-        $maxRetries = 10
-        $retryCount = 0
+        echo "Checking backend health..."
+        max_retries=10
+        retry_count=0
         
-        while ($retryCount -lt $maxRetries) {
-          try {
-            $response = Invoke-WebRequest -Uri "http://localhost:8000/health" -TimeoutSec 5 -UseBasicParsing
-            if ($response.StatusCode -eq 200) {
-              Write-Host "✅ Backend health check passed" -ForegroundColor Green
-              break
-            }
-          } catch {
-            Write-Host "⏳ Backend not ready yet... ($($retryCount + 1)/$maxRetries)" -ForegroundColor Yellow
-            Start-Sleep -Seconds 5
-          }
-          $retryCount++
-        }
+        while [ $retry_count -lt $max_retries ]; do
+          if curl -f -s http://localhost:8000/health > /dev/null; then
+            echo "✅ Backend health check passed"
+            break
+          else
+            echo "⏳ Backend not ready yet... ($((retry_count + 1))/$max_retries)"
+            sleep 5
+          fi
+          retry_count=$((retry_count + 1))
+        done
         
-        if ($retryCount -eq $maxRetries) {
-          Write-Host "❌ Backend health check failed" -ForegroundColor Red
+        if [ $retry_count -eq $max_retries ]; then
+          echo "❌ Backend health check failed"
           exit 1
-        }
+        fi
         
-        Write-Host "✅ All health checks passed" -ForegroundColor Green
+        echo "✅ All health checks passed"
     
     - name: Display deployment info
-      shell: powershell
       run: |
-        Write-Host "" -ForegroundColor White
-        Write-Host "🎉 DEPLOYMENT SUCCESSFUL!" -ForegroundColor Green
-        Write-Host "==========================================" -ForegroundColor Cyan
-        Write-Host "🌐 Frontend:     http://localhost:8080" -ForegroundColor White
-        Write-Host "🔧 Backend API:  http://localhost:8000" -ForegroundColor White
-        Write-Host "📚 API Docs:     http://localhost:8000/docs" -ForegroundColor White
-        Write-Host "❤️  Health Check: http://localhost:8000/health" -ForegroundColor White
-        Write-Host "" -ForegroundColor White
-        Write-Host "👤 Test Accounts:" -ForegroundColor Cyan
-        Write-Host "   📧 Email: student@edu.ru | teacher@edu.ru" -ForegroundColor White
-        Write-Host "   🔑 Password: 123" -ForegroundColor White
-        Write-Host "" -ForegroundColor White
-        Write-Host "📊 Current Status:" -ForegroundColor Cyan
+        echo ""
+        echo "🎉 DEPLOYMENT SUCCESSFUL!"
+        echo "=========================================="
+        echo "🌐 Frontend:     http://localhost:8080"
+        echo "🔧 Backend API:  http://localhost:8000"
+        echo "📚 API Docs:     http://localhost:8000/docs"
+        echo "❤️  Health Check: http://localhost:8000/health"
+        echo ""
+        echo "👤 Test Accounts:"
+        echo "   📧 Email: student@edu.ru | teacher@edu.ru"
+        echo "   🔑 Password: 123"
+        echo ""
+        echo "📊 Current Status:"
         kubectl get pods -n eduplatform
-        Write-Host "" -ForegroundColor White
-        Write-Host "🚀 Application is ready to use!" -ForegroundColor Green
+        echo ""
+        echo "🚀 Application is ready to use!"
