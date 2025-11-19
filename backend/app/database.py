@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 import os
 import time
 
-# Database configuration
+# Конфигурация БД
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@db:5432/education_platform")
 
 def create_engine_with_retry():
@@ -11,15 +11,14 @@ def create_engine_with_retry():
     for i in range(10):
         try:
             engine = create_engine(DATABASE_URL)
-            # ИСПРАВЛЕННАЯ проверка подключения - используем text()
             with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))  # ← ИСПРАВИТЬ ЗДЕСЬ
-            print("✅ Database connection established")
+                conn.execute(text("SELECT 1"))
+            print("Database connection established")
             return engine
         except Exception as e:
-            print(f"❌ Database connection attempt {i+1}/10 failed: {e}")
+            print(f"Database connection attempt {i+1}/10 failed: {e}")
             if i < 9:
-                print(f"⏳ Retrying in 5 seconds...")
+                print(f"Retrying in 5 seconds...")
                 time.sleep(5)
     raise Exception("Could not connect to database after 10 attempts")
 

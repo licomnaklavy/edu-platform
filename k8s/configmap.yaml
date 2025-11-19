@@ -4,6 +4,6 @@ metadata:
   name: app-config
   namespace: eduplatform
 data:
-  DATABASE_URL: "postgresql://user:password@postgresql-service:5432/education_platform"  # ← ПРОСТОЕ ИМЯ
+  DATABASE_URL: "postgresql://user:password@postgresql-service:5432/education_platform"
   API_BASE_URL: "http://backend-api-service:8000"
   SECRET_KEY: "your-production-secret-key-2024"

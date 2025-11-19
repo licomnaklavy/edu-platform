@@ -123,11 +123,6 @@
     gap: 0.3rem;
 }
 
-.course-hours::before {
-    content: '⏱';
-    font-size: 0.8rem;
-}
-
 .course-level {
     display: inline-block;
     padding: 0.3rem 0.8rem;

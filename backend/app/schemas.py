@@ -19,7 +19,7 @@ class UserLogin(BaseModel):
     email: str
     password: str
 
-# Course schemas
+# Курсы
 class CourseBase(BaseModel):
     name: str
     description: Optional[str] = None
@@ -38,7 +38,6 @@ class Course(CourseBase):
 class CourseWithEnrollment(Course):
     is_enrolled: bool = False
 
-# Response schemas
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str

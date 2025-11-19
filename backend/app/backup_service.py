@@ -23,15 +23,15 @@ def create_backup():
         result = subprocess.run(cmd, env=env, capture_output=True, text=True)
         
         if result.returncode == 0:
-            print(f"✅ Backup created successfully: {backup_file}")
+            print(f"Backup created successfully: {backup_file}")
             
             # Очистка старых бэкапов (оставляем последние 3)
             cleanup_old_backups()
         else:
-            print(f"❌ Backup failed: {result.stderr}")
+            print(f"Backup failed: {result.stderr}")
             
     except Exception as e:
-        print(f"❌ Backup error: {e}")
+        print(f"Backup error: {e}")
 
 def cleanup_old_backups():
     """Удаляет старые бэкапы, оставляя только 3 последних"""
@@ -51,20 +51,18 @@ def cleanup_old_backups():
                 for i in range(len(backups) - 3):
                     old_backup = backups[i][0]
                     os.remove(old_backup)
-                    print(f"🗑️ Removed old backup: {os.path.basename(old_backup)}")
+                    print(f"Removed old backup: {os.path.basename(old_backup)}")
                     
     except Exception as e:
         print(f"Cleanup error: {e}")
 
 if __name__ == "__main__":
-    print("🚀 Backup service started")
-    print("📊 Will create backups every 2 minutes for demonstration")
+    print("Backup service started")
+    print("Will create backups every 2 minutes for demonstration")
     
-    # Для демонстрации создаем бэкап каждые 2 минуты
-    # В реальном проекте можно раз в 6 часов или раз в день
-    backup_interval = 120  # 2 минуты в секундах
+    backup_interval = 120
     
     while True:
         create_backup()
-        print(f"⏰ Next backup in {backup_interval // 60} minutes...")
+        print(f"Next backup in {backup_interval // 60} minutes...")
         time.sleep(backup_interval)

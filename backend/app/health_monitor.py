@@ -9,15 +9,15 @@ def check_web_service(service_name, host, port, health_endpoint="/health"):
         url = f"http://{host}:{port}{health_endpoint}"
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
-            return True, "✅ Service is healthy"
+            return True, "Service is healthy"
         else:
-            return False, f"❌ HTTP {response.status_code}"
+            return False, f"HTTP {response.status_code}"
     except requests.exceptions.ConnectionError:
-        return False, "❌ Connection refused"
+        return False, "Connection refused"
     except requests.exceptions.Timeout:
-        return False, "❌ Timeout"
+        return False, "Timeout"
     except Exception as e:
-        return False, f"❌ Error: {str(e)}"
+        return False, f"Error: {str(e)}"
 
 def check_database():
     """Проверяет доступность базы данных"""
@@ -34,27 +34,27 @@ def check_database():
         cursor.execute("SELECT 1")
         cursor.close()
         conn.close()
-        return True, "✅ Database is accessible"
+        return True, "Database is accessible"
     except psycopg2.OperationalError as e:
-        return False, f"❌ Database connection failed: {str(e)}"
+        return False, f"Database connection failed: {str(e)}"
     except Exception as e:
-        return False, f"❌ Database error: {str(e)}"
+        return False, f"Database error: {str(e)}"
 
 def check_redis():
     """Проверяет доступность Redis"""
     try:
         r = redis.Redis(host="redis", port=6379, socket_connect_timeout=5)
         r.ping()
-        return True, "✅ Redis is responsive"
+        return True, "Redis is responsive"
     except redis.ConnectionError:
-        return False, "❌ Redis connection failed"
+        return False, "Redis connection failed"
     except Exception as e:
-        return False, f"❌ Redis error: {str(e)}"
+        return False, f"Redis error: {str(e)}"
 
 def monitor_all_services():
     """Проверяет все сервисы и выводит отчет"""
     print("\n" + "="*50)
-    print("🩺 HEALTH MONITOR REPORT")
+    print("HEALTH MONITOR REPORT")
     print("="*50)
     
     services_to_check = [
@@ -85,19 +85,19 @@ def monitor_all_services():
     
     print("="*50)
     if all_healthy:
-        print("🎉 ALL SYSTEMS OPERATIONAL")
+        print("ALL SYSTEMS OPERATIONAL")
     else:
-        print("⚠️  SOME SERVICES HAVE ISSUES")
+        print("SOME SERVICES HAVE ISSUES")
     print("="*50)
 
 if __name__ == "__main__":
-    print("🩺 Health Monitor Service Started")
-    print("📊 Monitoring services every 30 seconds...")
+    print("Health Monitor Service Started")
+    print("Monitoring services every 30 seconds...")
     
     # Для демонстрации проверяем чаще
     check_interval = 30  # секунды
     
     while True:
         monitor_all_services()
-        print(f"⏰ Next check in {check_interval} seconds...\n")
+        print(f"Next check in {check_interval} seconds...\n")
         time.sleep(check_interval)

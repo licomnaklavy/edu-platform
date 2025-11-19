@@ -9,7 +9,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from . import models, schemas, crud
 from .database import get_db, init_db
 
-# JWT configuration
+# JWT конфигурация
 SECRET_KEY = "your-secret-key-here-change-in-production"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -17,7 +17,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 app = FastAPI(title="Education Platform API")
 security = HTTPBearer()
 
-# CORS middleware
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -33,7 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize database on startup
+# Инициализация БД при запуске
 @app.on_event("startup")
 def on_startup():
     print("Initializing database...")
@@ -49,7 +49,7 @@ def on_startup():
     except Exception as e:
         print(f"Startup error: {e}")
 
-# JWT token functions
+# JWT токен
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -86,7 +86,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     
     return user
 
-# Auth endpoints
+# Авторизация
 @app.post("/auth/login", response_model=schemas.LoginResponse)
 def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
     user = crud.get_user_by_email(db, user_data.email)
@@ -105,7 +105,7 @@ def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
 
 @app.post("/auth/register", response_model=schemas.LoginResponse)
 def register(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
-    # Check if user already exists
+    # Проверка существования пользователя
     db_user = crud.get_user_by_email(db, email=user_data.email)
     if db_user:
         raise HTTPException(
@@ -113,7 +113,7 @@ def register(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
             detail="Email already registered"
         )
     
-    # Create new user
+    # Создание
     user = crud.create_user(db=db, user=user_data)
     
     access_token = create_access_token(data={"sub": user.email})
@@ -123,7 +123,6 @@ def register(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
         "user": schemas.User.from_orm(user)
     }
 
-# User endpoints
 @app.get("/users/me", response_model=schemas.User)
 def get_current_user_info(current_user: models.User = Depends(get_current_user)):
     return current_user
@@ -136,7 +135,6 @@ def update_user_profile(
 ):
     return crud.update_user(db=db, user_id=current_user.id, user_update=user_update)
 
-# Course endpoints
 @app.get("/courses", response_model=List[schemas.CourseWithEnrollment])
 def get_all_courses(
     current_user: models.User = Depends(get_current_user),
@@ -146,7 +144,6 @@ def get_all_courses(
     user_courses = crud.get_user_courses(db, current_user.id)
     user_course_ids = [course.id for course in user_courses]
     
-    # Add enrollment status to each course
     courses_with_enrollment = []
     for course in courses:
         course_data = schemas.CourseWithEnrollment.from_orm(course)
@@ -162,7 +159,6 @@ def get_my_courses(
 ):
     return crud.get_user_courses(db, current_user.id)
 
-# Enrollment endpoints
 @app.post("/users/me/courses/{course_id}")
 def enroll_in_course(
     course_id: int,
@@ -193,7 +189,6 @@ def leave_course(
     
     return {"message": "Successfully left course"}
 
-# Health check endpoint
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "service": "main-api"}

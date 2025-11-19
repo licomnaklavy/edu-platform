@@ -152,7 +152,6 @@ function createCourseElement(course, isMyCoursesPage) {
             <p class="course-description">${escapeHtml(course.description || 'Описание отсутствует')}</p>
             <div class="course-meta">
                 <span class="course-hours">
-                    <i class="time-icon">⏱</i>
                     ${course.hours} часов
                 </span>
                 <span class="course-id">ID: ${course.id}</span>
@@ -166,7 +165,7 @@ function createCourseElement(course, isMyCoursesPage) {
                             onclick="startCourse(${course.id})" 
                             ${course.is_enrolled ? 'disabled' : ''}
                             data-course-id="${course.id}">
-                        ${course.is_enrolled ? '✅ Курс добавлен' : '🎯 Начать курс'}
+                        ${course.is_enrolled ? 'Курс добавлен' : 'Начать курс'}
                     </button>`
                 }
             </div>
@@ -211,7 +210,7 @@ async function startCourse(courseId) {
     
     // Блокируем кнопку на время запроса
     button.disabled = true;
-    button.innerHTML = '⏳ Добавляем...';
+    button.innerHTML = 'Добавляем...';
     
     try {
         await coursesAPI.enrollInCourse(courseId);
@@ -227,7 +226,7 @@ async function startCourse(courseId) {
         
         // Восстанавливаем кнопку
         button.disabled = false;
-        button.innerHTML = '🎯 Начать курс';
+        button.innerHTML = 'Начать курс';
         
         showNotification('Ошибка при добавлении курса', 'error');
     }
@@ -245,7 +244,7 @@ async function leaveCourse(courseId) {
     
     if (button) {
         button.disabled = true;
-        button.innerHTML = '⏳ Выходим...';
+        button.innerHTML = 'Выходим...';
     }
     
     try {

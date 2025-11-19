@@ -68,25 +68,25 @@ jobs:
     
     - name: Cleanup previous deployment
       run: |
-        echo "🛑 Cleaning up previous deployment..."
+        echo "Cleaning up previous deployment..."
         kubectl delete -f k8s/ --ignore-not-found=true || true
         kubectl delete namespace eduplatform --ignore-not-found=true || true
         k3d cluster delete eduplatform --all || true
         docker system prune -f
-        echo "✅ Cleanup completed"
+        echo "Cleanup completed"
     
     - name: Create k3d cluster
       run: |
-        echo "🔧 Creating k3d cluster..."
+        echo "Creating k3d cluster..."
         k3d cluster create eduplatform \
           --port "80:30080@loadbalancer" \
           --port "8000:30800@loadbalancer" \
           --agents 2
-        echo "✅ k3d cluster created"
+        echo "k3d cluster created"
     
     - name: Build Docker images
       run: |
-        echo "🐳 Building Docker images..."
+        echo "Building Docker images..."
         
         echo "Building backend..."
         cd backend
@@ -96,18 +96,18 @@ jobs:
         cd ../frontend
         docker build -t eduplatform-frontend:latest .
         
-        echo "✅ Docker images built"
+        echo "Docker images built"
     
     - name: Import images to k3d
       run: |
-        echo "📦 Importing images to k3d cluster..."
+        echo "Importing images to k3d cluster..."
         k3d image import eduplatform-backend:latest -c eduplatform
         k3d image import eduplatform-frontend:latest -c eduplatform
-        echo "✅ Images imported"
+        echo "Images imported"
     
     - name: Deploy infrastructure
       run: |
-        echo "🏗️ Deploying infrastructure..."
+        echo "Deploying infrastructure..."
         
         echo "Creating namespace..."
         kubectl apply -f k8s/namespace.yaml
@@ -119,17 +119,17 @@ jobs:
         kubectl apply -f k8s/postgresql.yaml
         kubectl apply -f k8s/redis.yaml
         
-        echo "✅ Infrastructure deployed"
+        echo "Infrastructure deployed"
     
     - name: Wait for database
       run: |
-        echo "⏳ Waiting for database to be ready..."
+        echo "Waiting for database to be ready..."
         kubectl wait --for=condition=ready pod -l app=postgresql -n eduplatform --timeout=180s
-        echo "✅ Database is ready"
+        echo "Database is ready"
     
     - name: Deploy applications
       run: |
-        echo "🚀 Deploying applications..."
+        echo "Deploying applications..."
         
         echo "Deploying backend API..."
         kubectl apply -f k8s/backend-api.yaml
@@ -140,11 +140,11 @@ jobs:
         echo "Deploying ingress..."
         kubectl apply -f k8s/ingress.yaml
         
-        echo "✅ Applications deployed"
+        echo "Applications deployed"
     
     - name: Wait for applications
       run: |
-        echo "⏳ Waiting for applications to be ready..."
+        echo "Waiting for applications to be ready..."
         
         echo "Waiting for backend..."
         kubectl wait --for=condition=ready pod -l app=backend-api -n eduplatform --timeout=300s
@@ -152,11 +152,11 @@ jobs:
         echo "Waiting for frontend..."
         kubectl wait --for=condition=ready pod -l app=frontend -n eduplatform --timeout=180s
         
-        echo "✅ All applications are ready"
+        echo "All applications are ready"
     
     - name: Run health checks
       run: |
-        echo "🔍 Running health checks..."
+        echo "Running health checks..."
         
         echo "Checking backend health..."
         max_retries=10
@@ -164,37 +164,37 @@ jobs:
         
         while [ $retry_count -lt $max_retries ]; do
           if curl -f -s http://localhost:8000/health > /dev/null; then
-            echo "✅ Backend health check passed"
+            echo "Backend health check passed"
             break
           else
-            echo "⏳ Backend not ready yet... ($((retry_count + 1))/$max_retries)"
+            echo "Backend not ready yet... ($((retry_count + 1))/$max_retries)"
             sleep 5
           fi
           retry_count=$((retry_count + 1))
         done
         
         if [ $retry_count -eq $max_retries ]; then
-          echo "❌ Backend health check failed"
+          echo "Backend health check failed"
           exit 1
         fi
         
-        echo "✅ All health checks passed"
+        echo "All health checks passed"
     
     - name: Display deployment info
       run: |
         echo ""
-        echo "🎉 DEPLOYMENT SUCCESSFUL!"
+        echo "DEPLOYMENT SUCCESSFUL!"
         echo "=========================================="
-        echo "🌐 Frontend:     http://localhost:8080"
-        echo "🔧 Backend API:  http://localhost:8000"
-        echo "📚 API Docs:     http://localhost:8000/docs"
-        echo "❤️  Health Check: http://localhost:8000/health"
+        echo "Frontend:     http://localhost:80"
+        echo "Backend API:  http://localhost:8000"
+        echo "API Docs:     http://localhost:8000/docs"
+        echo "Health Check: http://localhost:8000/health"
         echo ""
-        echo "👤 Test Accounts:"
-        echo "   📧 Email: student@edu.ru | teacher@edu.ru"
-        echo "   🔑 Password: 123"
+        echo "Test Accounts:"
+        echo "Email: student@edu.ru | teacher@edu.ru"
+        echo "Password: 123"
         echo ""
-        echo "📊 Current Status:"
+        echo "Current Status:"
         kubectl get pods -n eduplatform
         echo ""
-        echo "🚀 Application is ready to use!"
+        echo "Application is ready to use!"

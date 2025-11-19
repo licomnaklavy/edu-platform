@@ -4,7 +4,6 @@ from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
-# Association table for many-to-many relationship between users and courses
 user_course_association = Table(
     'user_courses',
     Base.metadata,
@@ -20,7 +19,6 @@ class User(Base):
     password = Column(String, nullable=False)
     name = Column(String, nullable=False)
     
-    # Relationship to courses (many-to-many)
     courses = relationship("Course", secondary=user_course_association, back_populates="users")
 
 class Course(Base):
@@ -30,7 +28,6 @@ class Course(Base):
     name = Column(String, nullable=False)
     description = Column(String)
     hours = Column(Integer, nullable=False)
-    level = Column(String, nullable=False)  # beginner, intermediate, advanced
+    level = Column(String, nullable=False)
     
-    # Relationship to users (many-to-many)
     users = relationship("User", secondary=user_course_association, back_populates="courses")
