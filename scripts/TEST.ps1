@@ -26,9 +26,13 @@ kubectl wait --for=condition=ready pod -l app=postgresql -n eduplatform --timeou
 
 # Backend
 kubectl apply -f k8s/backend-api.yaml
+kubectl apply -f k8s/backend-auth.yaml
 
 # Ждем готовности бэкенда
 kubectl wait --for=condition=ready pod -l app=backend-api -n eduplatform --timeout=120s
+
+kubectl apply -f k8s/health-monitor.yaml
+kubectl apply -f k8s/backup-service.yaml
 
 # Frontend
 kubectl apply -f k8s/frontend.yaml

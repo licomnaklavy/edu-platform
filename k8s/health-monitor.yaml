@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: health-monitor
+  namespace: eduplatform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: health-monitor
+  template:
+    metadata:
+      labels:
+        app: health-monitor
+    spec:
+      containers:
+      - name: health-monitor
+        image: eduplatform-backend:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        command: ["python", "app/health_monitor.py"]
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://user:password@postgresql-service:5432/education_platform"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: health-monitor-service
+  namespace: eduplatform
+spec:
+  selector:
+    app: health-monitor
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30802
+  type: NodePort

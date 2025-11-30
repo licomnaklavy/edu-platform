@@ -3,7 +3,7 @@ FROM nginx:alpine
 # Копируем статические файлы
 COPY . /usr/share/nginx/html
 
-# Копируем конфигурацию nginx (по умолчанию для продакшена)
+# Копируем конфигурацию nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Копируем тестовую конфигурацию

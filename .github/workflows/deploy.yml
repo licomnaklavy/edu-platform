@@ -133,9 +133,16 @@ jobs:
         
         echo "Deploying backend API..."
         kubectl apply -f k8s/backend-api.yaml
+
+        echo "Deploying backend auth..."
+        kubectl apply -f k8s/backend-auth.yaml
         
         echo "Deploying frontend..."
         kubectl apply -f k8s/frontend.yaml
+
+        echo "Deploying other services..."
+        kubectl apply -f k8s/backup-service.yaml
+        kubectl apply -f k8s/health-monitor.yaml
         
         echo "Deploying ingress..."
         kubectl apply -f k8s/ingress.yaml

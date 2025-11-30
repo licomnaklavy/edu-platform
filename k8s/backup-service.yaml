@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backup-service
+  namespace: eduplatform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backup-service
+  template:
+    metadata:
+      labels:
+        app: backup-service
+    spec:
+      containers:
+      - name: backup-service
+        image: eduplatform-backend:latest
+        imagePullPolicy: Never
+        command: ["python", "app/backup_service.py"]
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://user:password@postgresql-service:5432/education_platform"
+        volumeMounts:
+        - name: backup-data
+          mountPath: /backups
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: backup-data
+        persistentVolumeClaim:
+          claimName: backup-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-pvc
+  namespace: eduplatform
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
