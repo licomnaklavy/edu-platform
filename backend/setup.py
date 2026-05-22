@@ -18,6 +18,6 @@ setup(
             "edu-backend=app.main:app",
         ],
     },
-    author="Ваша команда",
+    author="Второв Андрей, Кузьменко Всеволод, Лащенков Евгений",
     description="Education Platform Backend",
 )
